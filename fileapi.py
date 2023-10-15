@@ -1,7 +1,10 @@
+from settings import BASE_DIR
+
 import os
 from pathlib import Path
 import filecmp
 import time
+from pprint import pprint
 
 
 # 파일 또는 폴더 정보를 가져오는 함수
@@ -38,10 +41,7 @@ def getfile_info(item_path):
 
 
 # 현재 디렉토리의 파일과 폴더를 구분하여 정보를 가져오는 함수
-def listfiles_folders():
-    # 현재 작업 디렉토리의 경로 가져오기
-    current_path = Path.cwd()
-
+def listfiles_folders(current_path = BASE_DIR):
     # 현재 디렉토리 내의 모든 파일과 폴더 가져오기
     items = current_path.iterdir()
 
@@ -64,29 +64,27 @@ def compare_folders(folder1, folder2):
     comp = filecmp.dircmp(folder1, folder2)
     common_files = comp.common_files
     common_folders = comp.common_dirs
+    return {
+        "Files": [getfile_info(Path(folder1) / common_file) for common_file in common_files],
+        "Folders": [getfile_info(Path(folder1) / common_folder) for common_folder in common_folders],
+    }
 
-    print("Common Files:")
-    for common_file in common_files:
-        print(getfile_info(Path(folder1) / common_file))
+if __name__ == "__main__":
+    # 함수를 호출후 실행
+    file_infos = listfiles_folders()
 
-    print("Common Folders:")
-    for common_folder in common_folders:
-        print(getfile_info(Path(folder1) / common_folder))
+    # 결과를 출력합니다.
+    print("Files:")
+    for info in file_infos["Files"]:
+        pprint(info)
 
+    print("\nFolders:")
+    for info in file_infos["Folders"]:
+        pprint(info)
 
-# 함수를 호출후 실행
-file_infos = listfiles_folders()
-
-# 결과를 출력합니다.
-print("Files:")
-for info in file_infos["Files"]:
-    print(info)
-
-print("\nFolders:")
-for info in file_infos["Folders"]:
-    print(info)
-
-# 두 폴더 비교 예시
-Folder1 = r'C:\Users\ko\Documents\폴더1'
-Folder2 = r'C:\Users\Ko\Documents\폴더2'
-compare_folders(Folder1, Folder2)
+    # 두 폴더 비교 예시
+    Folder1 = BASE_DIR / "sample01"
+    Folder2 = BASE_DIR / "sample02"
+    pprint(
+        compare_folders(Folder1, Folder2)
+    )

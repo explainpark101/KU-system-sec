@@ -1,9 +1,28 @@
+from settings import BASE_DIR
+from utils import path_to_str
 import os
 import tkinter as tk
 from tkinter import ttk
 import time
+from pprint import pprint
+from pathlib import Path
+import subprocess
 
 class FileDirectoryManager:
+    
+    __current_dir: Path = BASE_DIR
+    
+    @property
+    def current_dir(self):
+        return self.__current_dir
+
+    @current_dir.setter
+    def current_dir(self, val):
+        if isinstance(val, Path) and val.is_dir():
+            self.__current_dir = val
+        self.update_directory_tree()
+        self.update_program_tree()
+    
     def __init__(self, root):
         self.root = root
         self.root.title("파일 디렉토리 관리 with Grid")
@@ -15,7 +34,7 @@ class FileDirectoryManager:
         self.right_frame.grid(row=0, column=1)
 
         # 1열 상단: 디렉토리 경로 표시 레이블 추가
-        self.directory_path_label = ttk.Label(self.left_frame, text="현재 디렉토리: " + os.getcwd())
+        self.directory_path_label = ttk.Label(self.left_frame, text="현재 디렉토리: " + path_to_str(self.current_dir))
         self.directory_path_label.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
 
         # 1열: 파일 디렉토리 탐색
@@ -63,15 +82,15 @@ class FileDirectoryManager:
 
 
     def update_directory_tree(self):
-        path = os.getcwd()
+        path = self.current_dir
         self.directory_tree.delete(*self.directory_tree.get_children())
 
         # "(Parent Directory)" 항목 추가
         if path != "/":
-            parent_dir = os.path.dirname(path)
+            parent_dir = path.parent
             self.directory_tree.insert("", "end", text="...(Parent Directory)", values=("폴더", ""))
         for item in os.listdir(path):
-            item_path = os.path.join(path, item)
+            item_path = path / item
             item_type = "파일"
             if os.path.isdir(item_path):
                 item_type = "폴더"
@@ -79,28 +98,38 @@ class FileDirectoryManager:
             self.directory_tree.insert("", "end", text=item, values=(item_type, item_size))
 
         # 업데이트된 디렉토리 경로를 표시
-        self.directory_path_label.config(text="현재 디렉토리: " + path)
+        self.directory_path_label.config(text="현재 디렉토리: " + path_to_str(path))
 
     def double_click_directory(self, event):
         item = self.directory_tree.selection()[0]
-        item_text = self.directory_tree.item(item)["text"]
-        item_path = os.path.join(os.getcwd(), item_text)
+        item_text = self.directory_tree.item(item).get("text")
+
+        item_path:Path
         if item_text == "...(Parent Directory)":
-            parent_dir = os.path.dirname(os.getcwd())
-            os.chdir(parent_dir)
-        elif os.path.isdir(item_path):
-            os.chdir(item_path)
-        self.update_directory_tree()
+            item_path = self.current_dir.parent
+        else:
+            item_path = self.current_dir / item_text
+        if item_path.is_dir():
+            self.current_dir = item_path
+            return
+        if item_path.suffix in ('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif'):
+            # this is image file
+            return subprocess.Popen(f"start {item_path}")
+        if item_path.suffix in ('.exe', ):
+            return subprocess.Popen(f"Start-Process -FilePath {item_path}")
+        # else: open with notepad
+        return subprocess.Popen(f"notepad {item_path}")
+        
 
     def update_program_tree(self):
-        path = os.getcwd()
+        path = self.current_dir
         self.program_tree.delete(*self.program_tree.get_children())
-        program_list = [{"프로그램": "프로그램1.exe", "LastModified": time.ctime(), "Size": "2MB"},
-                        {"프로그램": "프로그램2.exe", "LastModified": time.ctime(), "Size": "1.5MB"},
-                        {"프로그램": "프로그램3.exe", "LastModified": time.ctime(), "Size": "3MB"}]
+        program_list = [{"name": "name1.exe", "LastModified": time.ctime(), "Size": "2MB"},
+                        {"name": "name2.exe", "LastModified": time.ctime(), "Size": "1.5MB"},
+                        {"name": "name3.exe", "LastModified": time.ctime(), "Size": "3MB"}]
 
         for program in program_list:
-            self.program_tree.insert("", "end", text=program["프로그램"], values=(program["LastModified"], program["Size"]))
+            self.program_tree.insert("", "end", text=program["name"], values=(program["LastModified"], program["Size"]))
 
 if __name__ == "__main__":
     root = tk.Tk()
