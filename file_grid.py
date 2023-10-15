@@ -7,6 +7,8 @@ import time
 from pprint import pprint
 from pathlib import Path
 import subprocess
+import filetype
+
 
 class FileDirectoryManager:
     
@@ -112,13 +114,17 @@ class FileDirectoryManager:
         if item_path.is_dir():
             self.current_dir = item_path
             return
-        if item_path.suffix in ('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif'):
-            # this is image file
+        if filetype.is_image(item_path):
             return subprocess.Popen(f"start {item_path}")
-        if item_path.suffix in ('.exe', ):
-            return subprocess.Popen(f"Start-Process -FilePath {item_path}")
-        # else: open with notepad
-        return subprocess.Popen(f"notepad {item_path}")
+        # if item_path.suffix in ('.exe', ):
+        #     return subprocess.Popen(["Start-Process", "-FilePath", item_path])
+        if item_path.suffix == 'exe':
+            return subprocess.Popen(["start", item_path])
+        if filetype.is_audio(item_path) or filetype.is_video(item_path):
+            return subprocess.Popen(["./bin/mpv.exe", item_path])
+        if filetype.is_video(item_path):
+            return ...
+        return subprocess.Popen(["notepad", item_path])
         
 
     def update_program_tree(self):
