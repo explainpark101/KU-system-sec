@@ -18,3 +18,18 @@ SELECT fileContent.*
 FROM fileContent
 WHERE fileContent.file_path = '%s'
 	AND fileContent.record_time = '2023-01-01'
+
+
+-- INSERT FILE CONTENT INTO DB
+INSERT INTO fileContent(
+	[file_path],
+	[content],
+	[record_time],
+	[is_text]
+)
+VALUES (
+	'%s',
+	'%s',
+	'%s',
+	'%s'
+)
