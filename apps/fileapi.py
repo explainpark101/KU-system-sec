@@ -1,4 +1,4 @@
-from settings import BASE_DIR
+from .config.settings import BASE_DIR
 
 import os
 from pathlib import Path

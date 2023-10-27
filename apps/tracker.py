@@ -4,10 +4,11 @@ from pprint import pprint
 from pathlib import Path
 from pyuac import isUserAdmin, runAsAdmin
 from utils.MessageBox import alert, confirm
-from settings import DEBUG, BASE_DIR
+from .config.settings import DEBUG, BASE_DIR
 from datetime import datetime
 from itertools import chain
 from datetime import datetime
+from .database.utils import dictfetchall, get_connection
 import json
 
 def write_last_logging():
@@ -85,8 +86,7 @@ def tracking_alert(watchdir:str=".", printing=True, WATCHING_INTERVAL_MS=WATCHIN
     """
     # if not isUserAdmin():
     #     print("please run this program as admin")
-    #     res = confirm("""This Program is designed to be run in admin.\nDo you wish to run this as admin?""", 'Program Running Error',)
-    #     if res == 1:
+    #     if confirm("""This Program is designed to be run in admin.\nDo you wish to run this as admin?""", 'Program Running Error',):
     #         runAsAdmin()
     #     return sys.exit(0)
     print(f"File-change monitor is live.\n watching: `{watchdir}` \n{printing=}\nInterval={WATCHING_INTERVAL_MS}ms")
