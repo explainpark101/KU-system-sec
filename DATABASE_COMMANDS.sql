@@ -1,8 +1,9 @@
 CREATE TABLE fileContent (
 	[file_path] VARCHAR(1024),
-	[content] BLOB,
-	[record_time] DATETIME,
-	[is_text] BOOLEAN
+	[content] BLOB NULL,
+	[record_time] INT,
+	[is_text] BOOLEAN NULL,
+	[is_dir] BOOLEAN
 );
 
 

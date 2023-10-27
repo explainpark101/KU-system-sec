@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import filecmp
 import time
+from datetime import datetime
 from pprint import pprint
 
 
@@ -67,6 +68,27 @@ def compare_folders(folder1, folder2):
     return {
         "Files": [getfile_info(Path(folder1) / common_file) for common_file in common_files],
         "Folders": [getfile_info(Path(folder1) / common_folder) for common_folder in common_folders],
+    }
+    
+def changeSizeToString(size:int|float):
+    if size > 1000000000:
+        size /= 1000000000
+        return f"{size:.2f}GB"
+    if size > 1000000:
+        size /= 1000000
+        return f"{size:.2f}MB"
+    if size > 1000:
+        size /= 1000
+        return f"{size:.2f}KB"
+    return f"{size} Byte"
+
+def getFileInfo_fromDB(path:Path|str):
+    if isinstance(path, str):
+        path = Path(path)
+    return {
+        "name": path.name,
+        "LastModified": datetime.fromtimestamp(path.stat().st_mtime),
+        "Size": changeSizeToString(path.stat().st_size)
     }
 
 if __name__ == "__main__":

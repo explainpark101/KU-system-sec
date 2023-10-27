@@ -1,7 +1,7 @@
 import json
 import datetime
 from decimal import Decimal
-import sqlite3
+import sqlite3, time
 
 from ..config.settings import BASE_DIR, DB_NAME
 
@@ -31,4 +31,7 @@ def dictfetchall_lazy(cursor):
     return (dict(zip([col[0] for col in desc], row)) for row in cursor.fetchall())
 
 def get_connection():
-    return sqlite3.connect(DB_NAME)
+    conn = None
+    while conn is None:
+        conn = sqlite3.connect(DB_NAME, timeout=10)
+    return conn

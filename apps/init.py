@@ -43,9 +43,11 @@ def _create_database():
     cur.execute("""
                 CREATE TABLE fileContent (
                     [file_path] VARCHAR(1024),
-                    [content] BLOB,
+                    [content] BLOB NULL,
                     [record_time] INT,
-                    [is_text] BOOLEAN
+                    [is_text] BOOLEAN NULL,
+                    [is_dir] BOOLEAN,
+                    [size] INT NULL
                 );
                 """)
     conn.commit()

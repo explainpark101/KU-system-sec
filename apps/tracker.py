@@ -3,12 +3,18 @@ import time
 from pprint import pprint
 from pathlib import Path
 from pyuac import isUserAdmin, runAsAdmin
-from utils.MessageBox import alert, confirm
+from .utils.MessageBox import alert, confirm
 from .config.settings import DEBUG, BASE_DIR
+from .config.utils import fire_and_forget, fire_and_forget_decorator
 from datetime import datetime
 from itertools import chain
 from datetime import datetime
 from .database.utils import dictfetchall, get_connection
+from .database.funcs import insertFileLog_many, insertFileLog
+
+from filetype import is_extension_supported as is_not_code
+from charset_normalizer import detect
+import multiprocessing
 import json
 
 def write_last_logging():
@@ -19,8 +25,11 @@ def get_last_logging():
     if not (BASE_DIR / ".last_log.json").is_file():
         return 0
     with open(".last_log.json", "r") as last_log:
-        data = json.load(last_log)
-        LAST_LOG = data.get('last_logged', 0) 
+        last_log_readed = last_log.read()
+        if not last_log_readed:
+            return 0
+        data = json.loads(last_log_readed)
+        LAST_LOG:int = data.get('last_logged', 0)
     return LAST_LOG
 
 WATCHING_INTERVAL_MS = 1
@@ -35,9 +44,22 @@ def dir_walk(mydir: Path):
     for s in subdirs:
         yield from dir_walk(s)
 
-def get_changes(path:Path, last_modified_date:int=get_last_logging()):
+def p_rint(*args):
+    print(*args)
+    if len(args) == 1: return args[0]
+    return args
+
+def get_changes(path:Path, last_modified_date:int):
     data = dir_walk(path)
-    return (((root/dir) for (dir) in chain(dirs, files) if (root/dir).stat().st_mtime_ns > last_modified_date) for root, dirs, files in data)
+    for root, dirs, files in data:
+        for dir_name in dirs:
+            st_mtime = (root/dir_name).stat().st_mtime
+            if st_mtime > (last_modified_date):
+                yield root / dir_name
+        for file_name in files:
+            st_mtime = (root/file_name).stat().st_mtime
+            if st_mtime > (last_modified_date):
+                yield root / file_name
 
 def get_last_modified_dict(path:Path) -> dict:
     """
@@ -74,11 +96,68 @@ def get_unique_data(old_dict:dict, new_dict:dict) -> dict:
 
     return return_data
 
-def track_change(watchdir=BASE_DIR, printing=False, timing=get_last_logging()):
+def insertData_to_DB(file_path:Path):
+    if file_path.is_dir():
+        return (insertFileLog(file_path, None, datetime.now().timestamp(), None))
+    if is_not_code(file_path):
+        with open(file_path, "rb") as filebyte:
+            blob = filebyte.read()
+        return (insertFileLog(file_path, blob, datetime.now().timestamp(), False))
+    else:
+        with open(file_path, "rb") as filebyte:
+            content = filebyte.read()
+            try:
+                encoding_detection = detect(content)
+            except TypeError:
+                return (insertFileLog(file_path, content, datetime.now().timestamp(), False))
+        try:
+            with open(file_path, "r", encoding=encoding_detection.get("encoding", "utf8")) as file_data:
+                content = file_data.read()
+            return (insertFileLog(file_path, content, datetime.now().timestamp(), True))
+        except UnicodeDecodeError:
+            # if file_path.stat().st_size > 10000:
+            #     return (insertFileLog(file_path, None, datetime.now().timestamp(), False))
+            return (insertFileLog(file_path, content, datetime.now().timestamp(), False))
+
+pool:multiprocessing.Pool = None
+def insert_datas(loaded_datas):
+    global pool
+    pool = multiprocessing.Pool(multiprocessing.cpu_count() - 4 if multiprocessing.cpu_count() > 5 else 1)
+    pool.map(insertData_to_DB, loaded_datas)
+    pool.close()
+    if DEBUG: print("Completed!", end='\r')
+    from .gui import get_gui_app
+    if get_gui_app() is None:
+        sys.exit()
+    return
+
+def force_close_pool():
+    global pool
+    if pool is not None:
+        pool.close()
+        sys.exit()
+    
+itercount = 0
+def track_change(watchdir=BASE_DIR, printing=False, timing=get_last_logging(), WATCHING_INTERVAL_MS=WATCHING_INTERVAL_MS):
     loaded_data = get_changes(watchdir, timing)
+    # get data from database that has been updated
+    # diff check it
+    insert_datas(loaded_data)
     if printing: pprint(loaded_data)
     time.sleep(WATCHING_INTERVAL_MS)
-    return track_change(watchdir, printing, datetime.now().timestamp())
+    return watchdir, printing, datetime.now().timestamp(), WATCHING_INTERVAL_MS
+    return track_change(watchdir, printing, timing=datetime.now().timestamp(), WATCHING_INTERVAL_MS=WATCHING_INTERVAL_MS)
+
+# @fire_and_forget_decorator
+def start_tracking(watchdir:str|Path=BASE_DIR, printing=False, WATCHING_INTERVAL_MS=WATCHING_INTERVAL_MS):
+    print("tracking started!", flush=True)
+    args = watchdir, printing, get_last_logging(), WATCHING_INTERVAL_MS
+    while True:
+        try:
+            args = track_change(*args)
+        except KeyboardInterrupt:
+            exit()
+    return track_change(watchdir, printing, get_last_logging(), WATCHING_INTERVAL_MS=WATCHING_INTERVAL_MS)
 
 def tracking_alert(watchdir:str=".", printing=True, WATCHING_INTERVAL_MS=WATCHING_INTERVAL_MS):
     """
@@ -91,7 +170,7 @@ def tracking_alert(watchdir:str=".", printing=True, WATCHING_INTERVAL_MS=WATCHIN
     #     return sys.exit(0)
     print(f"File-change monitor is live.\n watching: `{watchdir}` \n{printing=}\nInterval={WATCHING_INTERVAL_MS}ms")
     try:
-        return track_change(watchdir, printing, get_last_modified_dict(watchdir))
+        return track_change(watchdir, printing, get_last_logging())
     except KeyboardInterrupt:
         print("Keyboard interrupt received...")
         write_last_logging()

@@ -8,9 +8,14 @@ from pprint import pprint
 from pathlib import Path
 import subprocess
 import filetype
+from datetime import datetime
+from apps.config.utils import fire_and_forget
+from apps.database.funcs import getFileLogs_after
+from .fileapi import getFileInfo_fromDB
+from .tracker import force_close_pool
+from .utils.MessageBox import alert, confirm
 
-
-class FileDirectoryManager:
+class FileDirectoryManager(tk.Frame):
     
     __current_dir: Path = BASE_DIR
     
@@ -25,14 +30,16 @@ class FileDirectoryManager:
         self.update_directory_tree()
         self.update_program_tree()
     
-    def __init__(self, root):
-        self.root = root
-        self.root.title("파일 디렉토리 관리 with Grid")
-
-        self.left_frame = ttk.Frame(root)
+    def __init__(self, root=None):
+        tk.Frame.__init__(self, root)
+        # self.root = root
+        self.master.title("파일 디렉토리 관리 with Grid")
+        self.master.protocol("WM_DELETE_WINDOW", self.closing)
+        
+        self.left_frame = ttk.Frame(self.master)
         self.left_frame.grid(row=0, column=0)
 
-        self.right_frame = ttk.Frame(root)
+        self.right_frame = ttk.Frame(self.master)
         self.right_frame.grid(row=0, column=1)
 
         # 1열 상단: 디렉토리 경로 표시 레이블 추가
@@ -91,13 +98,14 @@ class FileDirectoryManager:
         if path != "/":
             parent_dir = path.parent
             self.directory_tree.insert("", "end", text="...(Parent Directory)", values=("폴더", ""))
-        for item in os.listdir(path):
+        for item in path.iterdir():
             item_path = path / item
-            item_type = "파일"
-            if os.path.isdir(item_path):
-                item_type = "폴더"
-            item_size = os.path.getsize(item_path)
-            self.directory_tree.insert("", "end", text=item, values=(item_type, item_size))
+            item_type = "파일" if item_path.is_file() else "폴더"
+            try:
+                item_size = item_path.stat().st_size
+            except FileNotFoundError:
+                continue
+            self.directory_tree.insert("", "end", text=item.name, values=(item_type, item_size))
 
         # 업데이트된 디렉토리 경로를 표시
         self.directory_path_label.config(text="현재 디렉토리: " + path_to_str(path))
@@ -130,18 +138,54 @@ class FileDirectoryManager:
     def update_program_tree(self):
         path = self.current_dir
         self.program_tree.delete(*self.program_tree.get_children())
-        program_list = [{"name": "name1.exe", "LastModified": time.ctime(), "Size": "2MB"},
-                        {"name": "name2.exe", "LastModified": time.ctime(), "Size": "1.5MB"},
-                        {"name": "name3.exe", "LastModified": time.ctime(), "Size": "3MB"}]
+        program_list = getFileLogs_after(datetime.now())
+        program_list = [
+            getFileInfo_fromDB(p.get("file_path")) for p in program_list
+        ]
 
         for program in program_list:
             self.program_tree.insert("", "end", text=program["name"], values=(program["LastModified"], program["Size"]))
 
+    def closing(self):
+        if not confirm("Do you wish to close FEWT?"):
+            return
+        global app
+        app = None
+        force_close_pool()
+        self.master.destroy()
+        
+def get_gui_app():
+    global app
+    return app        
+        
+app:FileDirectoryManager = None
 
-def runGUI():
+
+def _runGUI():
+    global app
     root = tk.Tk()
     app = FileDirectoryManager(root)
-    root.mainloop()
+    app.mainloop()
+
+def update_program_tree(app):
+    while True:
+        app.update_program_tree()
+        time.sleep(.001)
+
+
+def runGUI():
+    global app
+    import threading
+    thd = threading.Thread(target=_runGUI)
+    thd.daemon = True
+    thd.start()
+    while app is None:
+        time.sleep(.001)
+    thd2 = threading.Thread(target=update_program_tree, args=(app, ))
+    thd2.daemon = True
+    thd2.start()
+    while app is None:
+        time.sleep(.001)
 
     
 if __name__ == "__main__":
