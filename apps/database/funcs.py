@@ -72,35 +72,20 @@ def insertFileLog(filename:Path|str, content:str|bytes,
     conn = get_connection()
     cur = conn.cursor()
     from ..tracker import WATCHING_INTERVAL_MS
-    from ..gui import get_gui_app
     while True:
-        if get_gui_app() is None:
-            return 
         try:
             cur.execute("""
                         INSERT INTO fileContent(
-                            [file_path],
-                            [content],
-                            [record_time],
-                            [is_text],
-                            [is_dir],
-                            [size]
+                            [file_path], [content], [record_time], [is_text], [is_dir], [size]
                         )
                         VALUES (
-                            ?,
-                            ?,
-                            ?,
-                            ?,
-                            ?,
-                            ?
+                            ?, ?, ?, ?, ?, ?
                         )
                         """, values)
             conn.commit()
             break
         except sqlite3.OperationalError:
-            import traceback
-            print(traceback.format_exc())
             time.sleep(WATCHING_INTERVAL_MS / 1000)
     conn.close()
-    if DEBUG_PRINT_FILEINPUT: print("[inserted]: ", filename)
+    if DEBUG_PRINT_FILEINPUT: print("[inserted]: ", filename, end="\r")
     
