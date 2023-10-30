@@ -2,7 +2,7 @@ from .config.settings import BASE_DIR
 from .utils import path_to_str
 import os
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, Menu
 import time
 from pprint import pprint
 from pathlib import Path
@@ -14,10 +14,20 @@ from apps.database.funcs import getFileLogs_after
 from .fileapi import getFileInfo_fromDB
 from .tracker import force_close_pool
 from .utils.MessageBox import alert, confirm
+import ctypes
+import win32com.client
+
+
 
 class FileDirectoryManager(tk.Frame):
     
     __current_dir: Path = BASE_DIR
+    hcursor = ctypes.windll.user32.GetCursor()
+    def set_cursor_loading(self):
+        return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32514) # set to loading
+    def set_cursor_default(self):
+        return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32514) # set to loading
+    
     
     @property
     def current_dir(self):
@@ -88,14 +98,39 @@ class FileDirectoryManager(tk.Frame):
 
         # 더블 클릭 이벤트 연결
         self.directory_tree.bind("<Double-1>", self.double_click_directory)
+        # self.directory_tree.bind("<Button-3>", self.open_context_menu)
+
+    def get_file_name_from_directory_tree(self):
+        return self.directory_tree.item(self.directory_tree.selection()[0]).get("text")
+
+    def open_context_menu(self, event):
+        try:
+            shell = win32com.client.Dispatch("Shell.Application")
+            folder = shell.Namespace(self.current_dir.as_uri())
+            filename = self.get_file_name_from_directory_tree()
+            file_item = folder.ParseName(filename)
+            context_menu = file_item.Verbs()
+            if context_menu:
+                tk_menu = Menu(self.master, tearoff=0)
+                for verb in context_menu:
+                    print(verb.__dict__)
+                    tk_menu.add_command(label=verb.Name, command=lambda v=verb:v.DoIt())
+                x, y = event.x_root, event.y_root
+                tk_menu.post(x, y)
+        except Exception as e:
+            print(e)
+                
+            
+            
 
 
     def update_directory_tree(self):
+        self.set_cursor_loading()
         path = self.current_dir
         self.directory_tree.delete(*self.directory_tree.get_children())
 
         # "(Parent Directory)" 항목 추가
-        if path != "/":
+        if path.as_posix().__len__() != 3:
             parent_dir = path.parent
             self.directory_tree.insert("", "end", text="...(Parent Directory)", values=("폴더", ""))
         for item in path.iterdir():
@@ -105,10 +140,15 @@ class FileDirectoryManager(tk.Frame):
                 item_size = item_path.stat().st_size
             except FileNotFoundError:
                 continue
+            self.set_cursor_loading()
             self.directory_tree.insert("", "end", text=item.name, values=(item_type, item_size))
 
         # 업데이트된 디렉토리 경로를 표시
         self.directory_path_label.config(text="현재 디렉토리: " + path_to_str(path))
+        self.set_cursor_default()
+        
+
+    
 
     def double_click_directory(self, event):
         item = self.directory_tree.selection()[0]
@@ -122,29 +162,32 @@ class FileDirectoryManager(tk.Frame):
         if item_path.is_dir():
             self.current_dir = item_path
             return
-        if filetype.is_image(item_path):
-            return subprocess.Popen(f"start {item_path}")
-        # if item_path.suffix in ('.exe', ):
-        #     return subprocess.Popen(["Start-Process", "-FilePath", item_path])
-        if item_path.suffix == 'exe':
-            return subprocess.Popen(["start", item_path])
-        if filetype.is_audio(item_path) or filetype.is_video(item_path):
-            return subprocess.Popen(["./bin/mpv.exe", item_path])
-        if filetype.is_video(item_path):
-            return subprocess.Popen(["./bin/mpv.exe", item_path])
-        return subprocess.Popen(["notepad", item_path])
+        # if filetype.is_image(item_path):
+        #     return subprocess.Popen(f"start {item_path}")
+        # # if item_path.suffix in ('.exe', ):
+        # #     return subprocess.Popen(["Start-Process", "-FilePath", item_path])
+        # if item_path.suffix == 'exe':
+        #     return subprocess.Popen(["start", item_path])
+        # if filetype.is_audio(item_path) or filetype.is_video(item_path):
+        #     return subprocess.Popen(["./bin/mpv.exe", item_path])
+        # if filetype.is_video(item_path):
+        #     return subprocess.Popen(["./bin/mpv.exe", item_path])
+        return os.startfile(item_path)
         
 
     def update_program_tree(self):
         path = self.current_dir
         self.program_tree.delete(*self.program_tree.get_children())
         program_list = getFileLogs_after(datetime.now())
+        self.set_cursor_loading()
         program_list = [
             getFileInfo_fromDB(p.get("file_path")) for p in program_list
         ]
 
         for program in program_list:
             self.program_tree.insert("", "end", text=program["name"], values=(program["LastModified"], program["Size"]))
+        self.set_cursor_default()
+        
 
     def closing(self):
         if not confirm("Do you wish to close FEWT?"):

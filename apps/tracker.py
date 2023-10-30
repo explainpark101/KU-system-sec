@@ -23,6 +23,7 @@ def write_last_logging():
 
 def get_last_logging():
     if not (BASE_DIR / ".last_log.json").is_file():
+        write_last_logging()
         return 0
     with open(".last_log.json", "r") as last_log:
         last_log_readed = last_log.read()
@@ -99,6 +100,8 @@ def get_unique_data(old_dict:dict, new_dict:dict) -> dict:
 def insertData_to_DB(file_path:Path):
     if file_path.is_dir():
         return (insertFileLog(file_path, None, datetime.now().timestamp(), None))
+    if file_path.suffix == '.sqlite3':
+        return 
     if is_not_code(file_path):
         with open(file_path, "rb") as filebyte:
             blob = filebyte.read()
@@ -115,9 +118,13 @@ def insertData_to_DB(file_path:Path):
                 content = file_data.read()
             return (insertFileLog(file_path, content, datetime.now().timestamp(), True))
         except UnicodeDecodeError:
-            # if file_path.stat().st_size > 10000:
-            #     return (insertFileLog(file_path, None, datetime.now().timestamp(), False))
+            if file_path.stat().st_size > 5000000:
+                return (insertFileLog(file_path, None, datetime.now().timestamp(), False))
             return (insertFileLog(file_path, content, datetime.now().timestamp(), False))
+        except PermissionError:
+            print("PermissionError", file_path)
+            return (insertFileLog(file_path, None, datetime.now().timestamp(), False))
+            
 
 pool:multiprocessing.Pool = None
 def insert_datas(loaded_datas):
