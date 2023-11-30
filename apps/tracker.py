@@ -15,6 +15,9 @@ from .database.funcs import insertFileLog_many, insertFileLog
 from filetype import is_extension_supported as is_not_code
 from charset_normalizer import detect
 import multiprocessing
+
+from watchfiles import watch
+
 import json
 
 def write_last_logging():
@@ -156,15 +159,15 @@ def track_change(watchdir=BASE_DIR, printing=False, timing=get_last_logging(), W
     return track_change(watchdir, printing, timing=datetime.now().timestamp(), WATCHING_INTERVAL_MS=WATCHING_INTERVAL_MS)
 
 # @fire_and_forget_decorator
-def start_tracking(watchdir:str|Path=BASE_DIR, printing=False, WATCHING_INTERVAL_MS=WATCHING_INTERVAL_MS):
+def start_tracking(watchdir:str|Path=BASE_DIR):
     print("tracking started!", flush=True)
-    args = watchdir, printing, get_last_logging(), WATCHING_INTERVAL_MS
-    while True:
-        try:
-            args = track_change(*args)
-        except KeyboardInterrupt:
-            exit()
-    return track_change(watchdir, printing, get_last_logging(), WATCHING_INTERVAL_MS=WATCHING_INTERVAL_MS)
+    for status, file_path in watch(watchdir):
+        if status != 3:
+            insertData_to_DB(file_path)
+            
+        print(status.name, file_path)
+    return 
+
 
 def tracking_alert(watchdir:str=".", printing=True, WATCHING_INTERVAL_MS=WATCHING_INTERVAL_MS):
     """
@@ -221,15 +224,3 @@ def process_argv(argv:list[str]):
     return watchdir, printing
             
             
-    
-def main(argv):
-    while True:
-        try:
-            tracking_alert(*process_argv(argv))
-            
-        except KeyboardInterrupt:
-            print("Keyboard interrupt received...")
-            sys.exit(0)
-        
-if __name__ == "__main__":
-    main(sys.argv)
