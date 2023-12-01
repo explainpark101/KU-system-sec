@@ -71,6 +71,8 @@ class FileDirectoryManager(AbstractManager):
         self.__initsmart__(root)
         self.master.protocol("WM_DELETE_WINDOW", self.closing)
         self.root.title("파일 디렉토리 관리 with Grid")
+        self.root.resizable(False, False)
+        
         
         self.master.grid_rowconfigure(0, weight=1)
         self.master.grid_columnconfigure(0, weight=1)
@@ -171,17 +173,21 @@ class RecentEdittedManager(AbstractManager):
     def __init__(self, root):
         self.__initsmart__(root)
         self.root.title("Recent Editted")
+        self.root.resizable(False, False)
         self.master.protocol("WM_DELETE_WINDOW", self.closing)
 
         self.right_frame = ttk.Frame(root)
-        self.right_frame.grid(row=0, column=1)
+        self.right_frame.pack(expand=True, fill='both')
+
+        self.wrapper_frame = ttk.Frame(self.right_frame)
+        self.wrapper_frame.grid(row=0, column=1)
 
         # 2창 상단: Recent Editted
-        self.frontend_text = ttk.Label(self.right_frame, text="Recent Editted", font=("Helvetica", 14, "bold"))
-        self.frontend_text.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
+        self.frontend_text = ttk.Label(self.wrapper_frame, text="Recent Editted", font=("Helvetica", 14, "bold"))
+        self.frontend_text.grid(row=0, column=0, padx=10, pady=5, sticky='ns')
 
         # 2창: 최근 변경된 프로그램
-        self.program_tree = ttk.Treeview(self.right_frame)
+        self.program_tree = ttk.Treeview(self.wrapper_frame, height=35)
         self.program_tree["columns"] = ("LastModified", "Size")
         self.program_tree.heading("#0", text="프로그램", anchor=tk.W)
         self.program_tree.heading("LastModified", text="최근 수정일", anchor=tk.W)
@@ -189,10 +195,12 @@ class RecentEdittedManager(AbstractManager):
         self.program_tree.column("#0", width=200, anchor=tk.W)
         self.program_tree.column("LastModified", width=100, anchor=tk.W)
         self.program_tree.column("Size", width=70, anchor=tk.W)
-        self.program_tree.grid(row=1, column=0, padx=10, pady=5)
+        self.program_tree.grid(row=1, column=0, padx=10, pady=5, columnspan=1, rowspan=1)
+        
+        
 
         # 2창 스크롤바 추가
-        program_scrollbar = ttk.Scrollbar(self.right_frame, orient="vertical", command=self.program_tree.yview)
+        program_scrollbar = ttk.Scrollbar(self.wrapper_frame, orient="vertical", command=self.program_tree.yview)
         program_scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
         self.program_tree.config(yscrollcommand=program_scrollbar.set)
 
