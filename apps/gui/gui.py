@@ -1,5 +1,5 @@
-from .config.settings import BASE_DIR
-from .utils import path_to_str
+from ..config.settings import BASE_DIR
+from ..utils import path_to_str
 import os
 import tkinter as tk
 from tkinter import ttk, Menu
@@ -11,24 +11,32 @@ import filetype
 from datetime import datetime, timedelta
 from apps.config.utils import fire_and_forget
 from apps.database.funcs import getFileLogs_after
-from .fileapi import getFileInfo_fromDB
-from .tracker import force_close_pool
-from .utils.MessageBox import alert, confirm
+from ..fileapi import getFileInfo_fromDB
+from ..tracker import force_close_pool
+from ..utils.MessageBox import alert, confirm
 import ctypes
 import win32com.client
-from .database.utils import dictfetchall
+from ..database.utils import dictfetchall
 import sqlite3
 
-
-class FileDirectoryManager(tk.Frame):
-    
+class AbstractManager(tk.Frame):
     __current_dir: Path = BASE_DIR
     hcursor = ctypes.windll.user32.GetCursor()
     def set_cursor_loading(self):
+        return 
         return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32514) # set to loading
     def set_cursor_default(self):
-        return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32514) # set to loading
+        return 
+        return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32512) # set to loading
     
+    def __initsmart__(self, root=None):
+        if root is None:
+            root = tk.Tk()
+        tk.Frame.__init__(self, root)
+        
+    @property
+    def root(self):
+        return self.master
     
     @property
     def current_dir(self):
@@ -39,25 +47,38 @@ class FileDirectoryManager(tk.Frame):
         if isinstance(val, Path) and val.is_dir():
             self.__current_dir = val
         self.update_directory_tree()
-        self.update_program_tree()
+
+    def closing(self):
+        global app1, app2
+        if not confirm("Do you wish to close FEWT?"):
+            return
+        self.set_cursor_default()
+        if app1 is not None and (app1_master:=getattr(app1, 'master')):
+            app1_master.destroy()
+        # if self==app2:
+        #     self.root.destroy()
+        #     exit()
+        # else:
+        #     app2.root.quit()
+        #     self.root.destroy()
+        #     exit()
+            
+
+class FileDirectoryManager(AbstractManager):
     
     def __init__(self, root=None):
-        tk.Frame.__init__(self, root)
-        # self.root = root
-        self.master.title("파일 디렉토리 관리 with Grid")
+        self.__initsmart__(root)
         self.master.protocol("WM_DELETE_WINDOW", self.closing)
-        
-        self.left_frame = ttk.Frame(self.master)
+        self.root.title("파일 디렉토리 관리 with Grid")
+
+        self.left_frame = ttk.Frame(root)
         self.left_frame.grid(row=0, column=0)
 
-        self.right_frame = ttk.Frame(self.master)
-        self.right_frame.grid(row=0, column=1)
-
-        # 1열 상단: 디렉토리 경로 표시 레이블 추가
-        self.directory_path_label = ttk.Label(self.left_frame, text="현재 디렉토리: " + path_to_str(self.current_dir))
+        # 1창 상단: 디렉토리 경로 표시 레이블 추가
+        self.directory_path_label = ttk.Label(self.left_frame, text="현재 디렉토리: " + os.getcwd())
         self.directory_path_label.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
 
-        # 1열: 파일 디렉토리 탐색
+        # 1창: 파일 디렉토리 탐색
         self.directory_tree = ttk.Treeview(self.left_frame)
         self.directory_tree["columns"] = ("Type", "Size")
         self.directory_tree.heading("#0", text="이름", anchor=tk.W)
@@ -68,60 +89,23 @@ class FileDirectoryManager(tk.Frame):
         self.directory_tree.column("Size", width=70, anchor=tk.W)
         self.directory_tree.grid(row=1, column=0, padx=10, pady=5)
 
-        # 1열 스크롤바 추가
+        # 1창 스크롤바 추가
         directory_scrollbar = ttk.Scrollbar(self.left_frame, orient="vertical", command=self.directory_tree.yview)
         directory_scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
         self.directory_tree.config(yscrollcommand=directory_scrollbar.set)
 
         self.update_directory_tree()
 
-        # 2열 상단: Recent Editted
-        self.frontend_text = ttk.Label(self.right_frame, text="Recent Editted", font=("Helvetica", 14, "bold"))
-        self.frontend_text.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
-
-        # 2열: 최근 변경된 프로그램
-        self.program_tree = ttk.Treeview(self.right_frame)
-        self.program_tree["columns"] = ("LastModified", "Size")
-        self.program_tree.heading("#0", text="프로그램", anchor=tk.W)
-        self.program_tree.heading("LastModified", text="최근 수정일", anchor=tk.W)
-        self.program_tree.heading("Size", text="크기", anchor=tk.W)
-        self.program_tree.column("#0", width=200, anchor=tk.W)
-        self.program_tree.column("LastModified", width=100, anchor=tk.W)
-        self.program_tree.column("Size", width=70, anchor=tk.W)
-        self.program_tree.grid(row=1, column=0, padx=10, pady=5)
-
-        # 2열 스크롤바 추가
-        program_scrollbar = ttk.Scrollbar(self.right_frame, orient="vertical", command=self.program_tree.yview)
-        program_scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
-        self.program_tree.config(yscrollcommand=program_scrollbar.set)
-
-        self.update_program_tree()
-
         # 더블 클릭 이벤트 연결
         self.directory_tree.bind("<Double-1>", self.double_click_directory)
-        # self.directory_tree.bind("<Button-3>", self.open_context_menu)
+
+        global app2
+        root2 = tk.Toplevel(self.master)
+        app2 = RecentEdittedManager(root2)
 
     def get_file_name_from_directory_tree(self):
         return self.directory_tree.item(self.directory_tree.selection()[0]).get("text")
 
-    def open_context_menu(self, event):
-        try:
-            shell = win32com.client.Dispatch("Shell.Application")
-            folder = shell.Namespace(self.current_dir.as_uri())
-            filename = self.get_file_name_from_directory_tree()
-            file_item = folder.ParseName(filename)
-            context_menu = file_item.Verbs()
-            if context_menu:
-                tk_menu = Menu(self.master, tearoff=0)
-                for verb in context_menu:
-                    print(verb.__dict__)
-                    tk_menu.add_command(label=verb.Name, command=lambda v=verb:v.DoIt())
-                x, y = event.x_root, event.y_root
-                tk_menu.post(x, y)
-        except Exception as e:
-            print(e)
-                
-            
             
 
 
@@ -174,8 +158,40 @@ class FileDirectoryManager(tk.Frame):
         # if filetype.is_video(item_path):
         #     return subprocess.Popen(["./bin/mpv.exe", item_path])
         return os.startfile(item_path)
-        
 
+    
+        
+class RecentEdittedManager(AbstractManager):
+    def __init__(self, root):
+        self.__initsmart__(root)
+        self.root.title("Recent Editted")
+        self.master.protocol("WM_DELETE_WINDOW", self.closing)
+
+        self.right_frame = ttk.Frame(root)
+        self.right_frame.grid(row=0, column=1)
+
+        # 2창 상단: Recent Editted
+        self.frontend_text = ttk.Label(self.right_frame, text="Recent Editted", font=("Helvetica", 14, "bold"))
+        self.frontend_text.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
+
+        # 2창: 최근 변경된 프로그램
+        self.program_tree = ttk.Treeview(self.right_frame)
+        self.program_tree["columns"] = ("LastModified", "Size")
+        self.program_tree.heading("#0", text="프로그램", anchor=tk.W)
+        self.program_tree.heading("LastModified", text="최근 수정일", anchor=tk.W)
+        self.program_tree.heading("Size", text="크기", anchor=tk.W)
+        self.program_tree.column("#0", width=200, anchor=tk.W)
+        self.program_tree.column("LastModified", width=100, anchor=tk.W)
+        self.program_tree.column("Size", width=70, anchor=tk.W)
+        self.program_tree.grid(row=1, column=0, padx=10, pady=5)
+
+        # 2창 스크롤바 추가
+        program_scrollbar = ttk.Scrollbar(self.right_frame, orient="vertical", command=self.program_tree.yview)
+        program_scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        self.program_tree.config(yscrollcommand=program_scrollbar.set)
+
+        self.update_program_tree()
+        
     def update_program_tree(self):
         """
         Database에서 변경사항 목록을 가져옵니다.
@@ -183,7 +199,7 @@ class FileDirectoryManager(tk.Frame):
         """
         path = self.current_dir
         self.program_tree.delete(*self.program_tree.get_children())
-        self.set_cursor_loading()
+        # self.set_cursor_loading()
         with sqlite3.connect("FEWT.sqlite3") as conn:
             cur = conn.cursor()
             cur.execute("""
@@ -205,33 +221,39 @@ class FileDirectoryManager(tk.Frame):
             self.program_tree.insert("", "end", text=program["name"], values=(program["LastModified"], program["Size"]))
         self.set_cursor_default()
         
-
-    def closing(self):
-        if not confirm("Do you wish to close FEWT?"):
-            return
-        global app1
-        app1 = None
-        force_close_pool()
-        self.master.destroy()
+    def insert_into_program_tree(self, data:dict):
+        file_path, record_time, size = data.get('file_path'), data.get('record_time'), data.get('size')
+        self.program_tree.insert("", "end", text=file_path, values=(datetime.fromtimestamp(record_time).strftime("%Y-%M-%D %H:%m:%s"), size))
+        return
         
-def get_gui_app():
-    return
-    global app1
-    return app1        
         
 app1:FileDirectoryManager = None
+app2:RecentEdittedManager = None
 
-
-
+def get_app1():
+    global app1
+    return app1
+def get_app2():
+    global app2
+    return app2
 
 def _runGUI():
     global app1
     root = tk.Tk()
     app1 = FileDirectoryManager(root)
     app1.mainloop()
+# def _runGUI2():
+#     global app2
+#     root2 = tk.Tk()
+#     app2 = RecentEdittedManager(root2)
+#     app2.mainloop()
+    
 
 def update_program_tree(app):
     while True:
+        if app is None: 
+            time.sleep(.001)
+            continue
         app.update_program_tree()
         time.sleep(.001)
 
@@ -241,14 +263,15 @@ def runGUI():
     import threading
     thd = threading.Thread(target=_runGUI)
     thd.daemon = True
+    # thd.start()
+    # thd = threading.Thread(target=_runGUI2)
+    # thd.daemon = True
     thd.start()
-    while app1 is None:
-        time.sleep(.001)
-    thd2 = threading.Thread(target=update_program_tree, args=(app1, ))
+    thd2 = threading.Thread(target=update_program_tree, args=(app2, ))
     thd2.daemon = True
     thd2.start()
-    while app1 is None:
-        time.sleep(.001)
+    
+    print(app1, app2)
 
     
 if __name__ == "__main__":

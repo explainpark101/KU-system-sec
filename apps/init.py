@@ -36,7 +36,7 @@ def check_dependencies():
     from pip._internal.operations.freeze import freeze
     with open(BASE_DIR / "requirements.txt", "r") as req:
         requirements = set((_.split("==")[0] for _ in req.readlines()))
-    installed = set(freeze())
+    installed = set([_.split("=")[0] for _ in freeze()])
     uninstalled = requirements - installed
     if uninstalled.__len__():
         message = "Do you want to install packages below?\n\n" + "\n".join(uninstalled)

@@ -2,6 +2,8 @@ import os, sys
 from apps.init import init_all
 from apps.tracker import write_last_logging, start_tracking
 from apps.config.settings import BASE_DIR
+import traceback
+from apps.config.settings import DEBUG
 
 try:
     from apps.gui import runGUI
@@ -9,7 +11,10 @@ except ImportError:
     from apps.init import check_dependencies
     from apps.utils.MessageBox import alert
     check_dependencies()
-    alert("Please Restart the program.")
+    if DEBUG:
+        alert(traceback.format_exc())
+    else:
+        alert("Please Restart the program.")
     sys.exit(0)
 
     
