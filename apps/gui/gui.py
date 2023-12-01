@@ -10,9 +10,7 @@ import subprocess
 import filetype
 from datetime import datetime, timedelta
 from apps.config.utils import fire_and_forget
-from apps.database.funcs import getFileLogs_after
 from ..fileapi import getFileInfo_fromDB
-from ..tracker import force_close_pool
 from ..utils.MessageBox import alert, confirm
 import ctypes
 import win32com.client
@@ -225,7 +223,7 @@ class RecentEdittedManager(AbstractManager):
         file_path, record_time, size = data.get('file_path'), data.get('record_time'), data.get('size')
         self.program_tree.insert("", "end", text=file_path, values=(datetime.fromtimestamp(record_time).strftime("%Y-%M-%D %H:%m:%s"), size))
         return
-        
+
         
 app1:FileDirectoryManager = None
 app2:RecentEdittedManager = None
