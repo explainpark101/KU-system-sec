@@ -8,7 +8,7 @@ from pprint import pprint
 from pathlib import Path
 import subprocess
 import filetype
-from datetime import datetime
+from datetime import datetime, timedelta
 from apps.config.utils import fire_and_forget
 from apps.database.funcs import getFileLogs_after
 from .fileapi import getFileInfo_fromDB
@@ -16,7 +16,8 @@ from .tracker import force_close_pool
 from .utils.MessageBox import alert, confirm
 import ctypes
 import win32com.client
-
+from .database.utils import dictfetchall
+import sqlite3
 
 
 class FileDirectoryManager(tk.Frame):
@@ -176,10 +177,26 @@ class FileDirectoryManager(tk.Frame):
         
 
     def update_program_tree(self):
+        """
+        Database에서 변경사항 목록을 가져옵니다.
+
+        """
         path = self.current_dir
         self.program_tree.delete(*self.program_tree.get_children())
-        program_list = getFileLogs_after(datetime.now())
         self.set_cursor_loading()
+        with sqlite3.connect("FEWT.sqlite3") as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT *
+                FROM "fileContent"
+                WHERE record_time > ?
+            """, [(datetime.now() - timedelta(hours=-1)).timestamp()])
+            program_list = dictfetchall(cur)
+        self.set_cursor_default()
+        for program in program_list:
+            self.program_tree.insert("", "end", text=program["file_path"], values=(datetime.fromtimestamp(program["record_time"]).strftime("%Y-%M-%D %H:%m:%s"), program["size"]))
+            
+        return 
         program_list = [
             getFileInfo_fromDB(p.get("file_path")) for p in program_list
         ]

@@ -100,11 +100,21 @@ def get_unique_data(old_dict:dict, new_dict:dict) -> dict:
 
     return return_data
 
-def insertData_to_DB(file_path:Path):
+def insertData_to_DB(file_path:Path, status=2):
+    status_map = {
+        1: "created",
+        2: "modified",
+        3: "deleted"
+    }
+    if isinstance(file_path, str):
+        file_path = Path(file_path)
     if file_path.is_dir():
         return (insertFileLog(file_path, None, datetime.now().timestamp(), None))
-    if file_path.suffix == '.sqlite3':
+    if file_path.suffix in ['.sqlite3', '.sqlite3-journal']:
         return 
+    if status == 3:
+        return insertFileLog(file_path, None, datetime.now().timestamp(), False)
+
     if is_not_code(file_path):
         with open(file_path, "rb") as filebyte:
             blob = filebyte.read()
@@ -161,11 +171,11 @@ def track_change(watchdir=BASE_DIR, printing=False, timing=get_last_logging(), W
 # @fire_and_forget_decorator
 def start_tracking(watchdir:str|Path=BASE_DIR):
     print("tracking started!", flush=True)
-    for status, file_path in watch(watchdir):
-        if status != 3:
-            insertData_to_DB(file_path)
-            
-        print(status.name, file_path)
+    for _ in watch(watchdir):
+        _ = list(_)
+        for status, file_path in _:
+            insertData_to_DB(file_path, status)
+            print(status.name, file_path)
     return 
 
 

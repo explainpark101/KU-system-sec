@@ -6,6 +6,9 @@ import filecmp
 import time
 from datetime import datetime
 from pprint import pprint
+from .database.funcs import getattr_func, dictfetchall
+from .config.utils import optionalIndex
+import sqlite3
 
 
 # 파일 또는 폴더 정보를 가져오는 함수
@@ -85,10 +88,30 @@ def changeSizeToString(size:int|float):
 def getFileInfo_fromDB(path:Path|str):
     if isinstance(path, str):
         path = Path(path)
+    
+    with sqlite3.connect('FEWT.sqlite3') as conn:
+        cur = conn.cursor()
+        cur.execute("""
+                    SELECT file_path, content, record_time, is_text, is_dir, size
+                    FROM "fileContent"
+                    WHERE file_path = ?
+                    ORDER BY record_time DESC
+                    LIMIT 1
+                    """, [path.__str__()])
+        result = dictfetchall(cur)
+    res = optionalIndex(result, 0, {})
+    return {
+        "name": res.get('file_path'),
+        "LastModified": datetime.fromtimestamp(res.get('st_mtime')) if res.get('st_mtime') else "None",
+        "Size": changeSizeToString(res.get("size")) if res.get("size") is not None else "None"
+    }
+    lastModified = getattr(getattr_func(path, 'stat'), 'st_mtime', None)
+    size = getattr(getattr_func(path, 'stat'), 'st_size', None)
+
     return {
         "name": path.name,
-        "LastModified": datetime.fromtimestamp(path.stat().st_mtime),
-        "Size": changeSizeToString(path.stat().st_size)
+        "LastModified": datetime.fromtimestamp(path.stat().st_mtime) if lastModified is not None else None,
+        "Size": changeSizeToString(path.stat().st_size) if size is not None else None
     }
 
 if __name__ == "__main__":

@@ -66,9 +66,18 @@ def insertFileLog_many(filenames:list[Path|str], contents:list[str|bytes], is_te
     conn.commit()
     conn.close()
 
+def getattr_func(obj, property:str):
+    try:
+        return getattr(obj, property, lambda:None)()
+    except:
+        return None
+
 def insertFileLog(filename:Path|str, content:str|bytes, 
                   record_time:datetime|int, is_text:bool) -> None:
-    values = filename.as_posix(), content, record_time, is_text, (getattr(filename, "is_dir", lambda: Path(filename).is_dir))(), filename.stat().st_size
+    values = filename.as_posix(), content, record_time, is_text, \
+                (getattr(filename, "is_dir", lambda: Path(filename).is_dir))(), \
+                getattr(getattr_func(filename, "stat"), "st_size", 0)
+                
     conn = get_connection()
     cur = conn.cursor()
     from ..tracker import WATCHING_INTERVAL_MS

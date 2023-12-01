@@ -16,7 +16,7 @@ except ImportError:
 
 def main(argv):
     if len(argv) > 1 and argv[1] == 'flush':
-        if (BASE_DIR / "FWET.sqlite3").is_file(): os.remove(BASE_DIR / "FWET.sqlite3")
+        if (BASE_DIR / "FEWT.sqlite3").is_file(): os.remove(BASE_DIR / "FEWT.sqlite3")
         if (BASE_DIR / ".last_log.json").is_file(): os.remove(BASE_DIR / ".last_log.json")
     init_all()
     runGUI()
