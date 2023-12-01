@@ -1,6 +1,6 @@
 import os, sys
 from apps.init import init_all
-from apps.tracker import write_last_logging, start_tracking
+from apps.tracker import start_tracking
 from apps.config.settings import BASE_DIR
 import traceback
 from apps.config.settings import DEBUG

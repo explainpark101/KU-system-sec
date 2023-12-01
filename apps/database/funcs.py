@@ -80,7 +80,7 @@ def insertFileLog(filename:Path|str, content:str|bytes,
                 
     conn = get_connection()
     cur = conn.cursor()
-    from ..tracker import WATCHING_INTERVAL_MS
+    from ..config.settings import WATCHING_INTERVAL_MS
     while True:
         try:
             cur.execute("""
@@ -97,4 +97,5 @@ def insertFileLog(filename:Path|str, content:str|bytes,
             time.sleep(WATCHING_INTERVAL_MS / 1000)
     conn.close()
     if DEBUG_PRINT_FILEINPUT: print("[inserted]: ", filename, end="\r")
+    return values
     

@@ -27,9 +27,11 @@ class AbstractManager(tk.Frame):
         return 
         return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32512) # set to loading
     
+    
     def __initsmart__(self, root=None):
         if root is None:
             root = tk.Tk()
+
         tk.Frame.__init__(self, root)
         
     @property
@@ -47,12 +49,13 @@ class AbstractManager(tk.Frame):
         self.update_directory_tree()
 
     def closing(self):
-        global app1, app2
+        global app1, app2, running
         if not confirm("Do you wish to close FEWT?"):
             return
         self.set_cursor_default()
         if app1 is not None and (app1_master:=getattr(app1, 'master')):
             app1_master.destroy()
+        running = False
         # if self==app2:
         #     self.root.destroy()
         #     exit()
@@ -68,29 +71,36 @@ class FileDirectoryManager(AbstractManager):
         self.__initsmart__(root)
         self.master.protocol("WM_DELETE_WINDOW", self.closing)
         self.root.title("파일 디렉토리 관리 with Grid")
+        
+        self.master.grid_rowconfigure(0, weight=1)
+        self.master.grid_columnconfigure(0, weight=1)
+
 
         self.left_frame = ttk.Frame(root)
-        self.left_frame.grid(row=0, column=0)
+        self.left_frame.grid(row=0, column=0, sticky="nsew")
+        
 
         # 1창 상단: 디렉토리 경로 표시 레이블 추가
-        self.directory_path_label = ttk.Label(self.left_frame, text="현재 디렉토리: " + os.getcwd())
-        self.directory_path_label.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
+        # self.directory_path_indicator = ttk.Label(self.left_frame, text="현재 디렉토리:")
+        # self.directory_path_indicator.grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
+        self.directory_path_label = ttk.Label(self.left_frame, text=self.current_dir)
+        self.directory_path_label.grid(row=1, column=0, padx=10, pady=5, sticky=tk.W)
 
         # 1창: 파일 디렉토리 탐색
-        self.directory_tree = ttk.Treeview(self.left_frame)
-        self.directory_tree["columns"] = ("Type", "Size")
+        self.directory_tree = ttk.Treeview(self.left_frame, selectmode="extended", columns=("Type", "Size"), height=20)
         self.directory_tree.heading("#0", text="이름", anchor=tk.W)
         self.directory_tree.heading("Type", text="타입", anchor=tk.W)
         self.directory_tree.heading("Size", text="크기", anchor=tk.W)
-        self.directory_tree.column("#0", width=200, anchor=tk.W)
-        self.directory_tree.column("Type", width=70, anchor=tk.W)
-        self.directory_tree.column("Size", width=70, anchor=tk.W)
-        self.directory_tree.grid(row=1, column=0, padx=10, pady=5)
+        self.directory_tree.column("#0", width=650, anchor=tk.W)
+        self.directory_tree.column("Type", width=130, anchor=tk.W)
+        self.directory_tree.column("Size", width=130, anchor=tk.W)
+        self.directory_tree.grid(row=2, column=0, padx=10, pady=5)
 
         # 1창 스크롤바 추가
         directory_scrollbar = ttk.Scrollbar(self.left_frame, orient="vertical", command=self.directory_tree.yview)
-        directory_scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        directory_scrollbar.grid(row=2, column=1, sticky=(tk.N, tk.S))
         self.directory_tree.config(yscrollcommand=directory_scrollbar.set)
+
 
         self.update_directory_tree()
 
@@ -103,8 +113,6 @@ class FileDirectoryManager(AbstractManager):
 
     def get_file_name_from_directory_tree(self):
         return self.directory_tree.item(self.directory_tree.selection()[0]).get("text")
-
-            
 
 
     def update_directory_tree(self):
@@ -208,7 +216,7 @@ class RecentEdittedManager(AbstractManager):
             program_list = dictfetchall(cur)
         self.set_cursor_default()
         for program in program_list:
-            self.program_tree.insert("", "end", text=program["file_path"], values=(datetime.fromtimestamp(program["record_time"]).strftime("%Y-%M-%D %H:%m:%s"), program["size"]))
+            self.program_tree.insert("", "end", text=program["file_path"], values=(datetime.fromtimestamp(program["record_time"]).strftime("%Y-%m-%d %H:%M:%S"), program["size"]))
             
         return 
         program_list = [
@@ -221,12 +229,13 @@ class RecentEdittedManager(AbstractManager):
         
     def insert_into_program_tree(self, data:dict):
         file_path, record_time, size = data.get('file_path'), data.get('record_time'), data.get('size')
-        self.program_tree.insert("", "end", text=file_path, values=(datetime.fromtimestamp(record_time).strftime("%Y-%M-%D %H:%m:%s"), size))
+        self.program_tree.insert("", 0, text=file_path, values=(datetime.fromtimestamp(record_time).strftime("%Y-%m-%d %H:%M:%S"), size))
         return
 
         
 app1:FileDirectoryManager = None
 app2:RecentEdittedManager = None
+running:bool = True
 
 def get_app1():
     global app1
@@ -234,6 +243,10 @@ def get_app1():
 def get_app2():
     global app2
     return app2
+
+def is_gui_running():
+    global running
+    return running
 
 def _runGUI():
     global app1

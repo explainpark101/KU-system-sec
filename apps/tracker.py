@@ -11,10 +11,12 @@ from itertools import chain
 from datetime import datetime
 from .database.utils import dictfetchall, get_connection
 from .database.funcs import insertFileLog_many, insertFileLog
+from .gui import is_gui_running, get_app2
 
 from filetype import is_extension_supported as is_not_code
 from charset_normalizer import detect
 
+import sys
 from watchfiles import watch
 
 
@@ -29,7 +31,7 @@ def insertData_to_DB(file_path:Path, status=2):
     if file_path.is_dir():
         return (insertFileLog(file_path, None, datetime.now().timestamp(), None))
     if file_path.suffix in ['.sqlite3', '.sqlite3-journal']:
-        return 
+        return None
     if status == 3:
         return insertFileLog(file_path, None, datetime.now().timestamp(), False)
 
@@ -60,11 +62,17 @@ def insertData_to_DB(file_path:Path, status=2):
 # @fire_and_forget_decorator
 def start_tracking(watchdir:str|Path=BASE_DIR):
     print("tracking started!", flush=True)
-    for _ in watch(watchdir):
+    for _ in watch(watchdir, rust_timeout=100, yield_on_timeout=True):
+        if not is_gui_running():
+            return 
         _ = list(_)
         for status, file_path in _:
-            insertData_to_DB(file_path, status)
-            print(status.name, file_path)
+            res = insertData_to_DB(file_path, status)
+            if DEBUG: print(status.name, file_path)
+            if res is not None:
+                app2 = get_app2()
+                filename, content, record_time, *is_sereis, _size = res
+                app2.insert_into_program_tree({"file_path": filename, "record_time":record_time, "size":_size})
     return 
 
 
