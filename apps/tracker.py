@@ -141,6 +141,7 @@ def insertData_to_DB(file_path:Path, status=2):
 
 pool:multiprocessing.Pool = None
 def insert_datas(loaded_datas):
+    return
     global pool
     pool = multiprocessing.Pool(multiprocessing.cpu_count() - 4 if multiprocessing.cpu_count() > 5 else 1)
     pool.map(insertData_to_DB, loaded_datas)

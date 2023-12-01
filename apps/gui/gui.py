@@ -209,23 +209,26 @@ class FileDirectoryManager(tk.Frame):
     def closing(self):
         if not confirm("Do you wish to close FEWT?"):
             return
-        global app
-        app = None
+        global app1
+        app1 = None
         force_close_pool()
         self.master.destroy()
         
 def get_gui_app():
-    global app
-    return app        
+    return
+    global app1
+    return app1        
         
-app:FileDirectoryManager = None
+app1:FileDirectoryManager = None
+
+
 
 
 def _runGUI():
-    global app
+    global app1
     root = tk.Tk()
-    app = FileDirectoryManager(root)
-    app.mainloop()
+    app1 = FileDirectoryManager(root)
+    app1.mainloop()
 
 def update_program_tree(app):
     while True:
@@ -234,17 +237,17 @@ def update_program_tree(app):
 
 
 def runGUI():
-    global app
+    global app1
     import threading
     thd = threading.Thread(target=_runGUI)
     thd.daemon = True
     thd.start()
-    while app is None:
+    while app1 is None:
         time.sleep(.001)
-    thd2 = threading.Thread(target=update_program_tree, args=(app, ))
+    thd2 = threading.Thread(target=update_program_tree, args=(app1, ))
     thd2.daemon = True
     thd2.start()
-    while app is None:
+    while app1 is None:
         time.sleep(.001)
 
     
