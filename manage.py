@@ -33,7 +33,7 @@ def main(argv):
             if len(argv) > 2:
                 watch_path = pathlib.Path(os.path.expanduser(argv[2]))
         else:
-            watch_path = pathlib.Path(argv[1])
+            watch_path = pathlib.Path(os.path.expanduser(argv[1]))
             if len(argv) > 2 and argv[2] == 'flush':
                 if (BASE_DIR / "FEWT.sqlite3").is_file(): os.remove(BASE_DIR / "FEWT.sqlite3")
                 if (BASE_DIR / ".last_log.json").is_file(): os.remove(BASE_DIR / ".last_log.json")
