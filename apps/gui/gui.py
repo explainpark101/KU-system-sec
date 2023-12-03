@@ -35,7 +35,8 @@ class AbstractManager(tk.Frame):
     def current_dir(self, val):
         if isinstance(val, Path) and val.is_dir():
             self.__current_dir = val
-        self.update_directory_tree()
+        if hasattr(self, "directory_tree"):
+            self.update_directory_tree()
 
     def closing(self):
         global app1, app2, running
@@ -56,8 +57,11 @@ class AbstractManager(tk.Frame):
 
 class FileDirectoryManager(AbstractManager):
     
-    def __init__(self, root=None):
+    def __init__(self, root=None, base_dir=None):
         self.__initsmart__(root)
+        if base_dir is not None:
+            self.current_dir = base_dir
+            
         self.master.protocol("WM_DELETE_WINDOW", self.closing)
         self.root.title("파일 디렉토리 관리 with Grid")
         self.root.resizable(False, False)
@@ -105,6 +109,22 @@ class FileDirectoryManager(AbstractManager):
     def get_file_name_from_directory_tree(self):
         return self.directory_tree.item(self.directory_tree.selection()[0]).get("text")
 
+    def update_current_dir(self):
+        path = self.current_dir
+        self.directory_tree.delete(*self.directory_tree.get_children())
+
+        # "(Parent Directory)" 항목 추가
+        if path.as_posix().__len__() != 3:
+            parent_dir = path.parent
+            self.directory_tree.insert("", "end", text="...(Parent Directory)", values=("폴더", ""))
+        for item in path.iterdir():
+            item_path = path / item
+            item_type = "파일" if item_path.is_file() else "폴더"
+            try:
+                item_size = item_path.stat().st_size
+            except FileNotFoundError:
+                continue
+            self.directory_tree.insert("", "end", text=item.name, values=(item_type, item_size))
 
     def update_directory_tree(self):
         path = self.current_dir
@@ -221,6 +241,8 @@ class RecentEdittedManager(AbstractManager):
 
         self.program_tree.bind("<Double-1>", self.toggle_safety)
         
+        
+        
     def change_watching_dir(self):
         ...
         
@@ -246,7 +268,7 @@ class RecentEdittedManager(AbstractManager):
                 WHERE record_time > ?
             """, [(datetime.now() - timedelta(hours=-1)).timestamp()])
             program_list = dictfetchall(cur)
-        change_cursor()
+        change_cursor("default")
         for program in program_list:
             self.program_tree.insert("", "end", text=program["file_path"], values=(datetime.fromtimestamp(program["record_time"]).strftime("%Y-%m-%d %H:%M:%S.%f"), program["size"]))
             
@@ -358,11 +380,12 @@ def is_gui_running():
     global running
     return running
 
-def _runGUI():
+def _runGUI(base_dir=None):
     global app1
     root = tk.Tk()
-    app1 = FileDirectoryManager(root)
+    app1 = FileDirectoryManager(root, base_dir)
     app1.mainloop()
+    
 # def _runGUI2():
 #     global app2
 #     root2 = tk.Tk()
@@ -379,18 +402,19 @@ def update_program_tree(app):
         time.sleep(.001)
 
 
-def runGUI():
+def runGUI(base_dir=None):
     global app1
     import threading
-    thd = threading.Thread(target=_runGUI)
+    thd = threading.Thread(target=_runGUI, args=(base_dir, ))
     thd.daemon = True
     # thd.start()
     # thd = threading.Thread(target=_runGUI2)
     # thd.daemon = True
     thd.start()
-    thd2 = threading.Thread(target=update_program_tree, args=(app2, ))
+    thd2 = threading.Thread(target=update_program_tree, args=(app1, ))
     thd2.daemon = True
     thd2.start()
+    change_cursor()
     
 if __name__ == "__main__":
     runGUI()

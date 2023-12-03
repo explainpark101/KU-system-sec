@@ -24,8 +24,8 @@ except ImportError:
     
 # @main_requires_admin
 def main(argv):
-    change_cursor("default")
     watch_path:pathlib.Path = pathlib.Path(os.path.expanduser("~"))
+    
     if len(argv) > 1:
         if argv[1] in ['--flush', '-f']:
             if (BASE_DIR / "FEWT.sqlite3").is_file(): os.remove(BASE_DIR / "FEWT.sqlite3")
@@ -38,7 +38,7 @@ def main(argv):
                 if (BASE_DIR / "FEWT.sqlite3").is_file(): os.remove(BASE_DIR / "FEWT.sqlite3")
                 if (BASE_DIR / ".last_log.json").is_file(): os.remove(BASE_DIR / ".last_log.json")
     init_all()
-    runGUI()
+    runGUI(watch_path)
 
     if DEBUG:
         print("watching: ", watch_path.resolve())
