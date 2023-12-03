@@ -72,7 +72,6 @@ def insertDatas(file_path:Path, status:int, app2=get_app2()):
     """
     res = insertData_to_DB(file_path, status)
     if res is not None:
-        print((res[0], res[2:]))
         filename, content, record_time, *is_sereis, _size = res
         app2.insert_into_program_tree({"file_path": filename, "record_time":record_time, "size":_size})
         insertFileLog(*res)

@@ -20,3 +20,15 @@ python -m venv myvenv
 .\myvenv\Scripts\pip.exe install -r requirements.txt
 .\myvenv\Scripts\python.exe manage.py
 ```
+
+기본적으로 프로그램을 실행하면, **C:\\Users\\{Username}** 디렉토리의 변경사항을 트래킹합니다.
+
+변경사항이 저장된 database를 초기화하려면 
+```powershell
+python manage.py -f [watch-directory]
+```
+
+특정 디렉토리의 변경사항만 확인하려면
+```powershell
+python manage.py [watch-directory]
+```
