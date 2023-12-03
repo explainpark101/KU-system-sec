@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import filetype
 from datetime import datetime, timedelta
-from apps.config.utils import fire_and_forget
+from apps.config.utils import fire_and_forget, optionalIndex
 from ..fileapi import getFileInfo_fromDB
 from ..utils.MessageBox import alert, confirm
 import ctypes
@@ -180,31 +180,46 @@ class RecentEdittedManager(AbstractManager):
         self.right_frame.pack(expand=True, fill='both')
 
         self.wrapper_frame = ttk.Frame(self.right_frame)
-        self.wrapper_frame.grid(row=0, column=1)
+        self.wrapper_frame.grid(row=2, column=1)
+
+        menubar = tk.Menu(self.root)
+        menubar.add_cascade(label="마크다운 문서 변환", command=self.convert_markdown)
+        menubar.add_cascade(label="PDF 문서 변환", command=self.convert_pdf)
+
+        # 메뉴바 적용
+        self.root.config(menu=menubar)
+
+        self.change_safety_btn = ttk.Button(self.wrapper_frame, text="위험도 변경", command=self.toggle_safety, width=20)
+        self.change_safety_btn.grid(row=1, column=0, pady=5, padx=(10, 5), sticky=tk.W)
 
         # 2창 상단: Recent Editted
         self.frontend_text = ttk.Label(self.wrapper_frame, text="Recent Editted", font=("Helvetica", 14, "bold"))
         self.frontend_text.grid(row=0, column=0, padx=10, pady=5, sticky='ns')
 
+        self.label_01 = ttk.Label(self.wrapper_frame, text='여기에는 파일 변경사항이 기록됩니다.\n파일을 더블 클릭하여 위험도를 변경하고, markdown 문서 또는 pdf 문서로 출력할 수 있습니다.')
+        self.label_01.grid(row=1, column=0)
+
         # 2창: 최근 변경된 프로그램
         self.program_tree = ttk.Treeview(self.wrapper_frame, height=35)
-        self.program_tree["columns"] = ("LastModified", "Size")
+        self.program_tree["columns"] = ("LastModified", "Size", "Safety")
         self.program_tree.heading("#0", text="프로그램", anchor=tk.W)
         self.program_tree.heading("LastModified", text="최근 수정일", anchor=tk.W)
         self.program_tree.heading("Size", text="크기", anchor=tk.W)
-        self.program_tree.column("#0", width=200, anchor=tk.W)
+        self.program_tree.heading("Safety", text="안전도", anchor=tk.W)  # Header for "Safety" column
+        self.program_tree.column("#0", width=550, anchor=tk.W)
         self.program_tree.column("LastModified", width=100, anchor=tk.W)
         self.program_tree.column("Size", width=70, anchor=tk.W)
-        self.program_tree.grid(row=1, column=0, padx=10, pady=5, columnspan=1, rowspan=1)
+        self.program_tree.column("Safety", width=70, anchor=tk.W)  # Width for "Safety" column
+        self.program_tree.grid(row=3, column=0, padx=10, pady=5, columnspan=1, rowspan=1)
         
-        
+        self.program_tree.bind()
 
         # 2창 스크롤바 추가
         program_scrollbar = ttk.Scrollbar(self.wrapper_frame, orient="vertical", command=self.program_tree.yview)
-        program_scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        program_scrollbar.grid(row=3, column=1, sticky=(tk.N, tk.S))
         self.program_tree.config(yscrollcommand=program_scrollbar.set)
 
-        self.update_program_tree()
+        self.program_tree.bind("<Double-1>", self.toggle_safety)
         
     def update_program_tree(self):
         """
@@ -239,6 +254,64 @@ class RecentEdittedManager(AbstractManager):
         file_path, record_time, size = data.get('file_path'), data.get('record_time'), data.get('size')
         self.program_tree.insert("", 0, text=file_path, values=(datetime.fromtimestamp(record_time).strftime("%Y-%m-%d %H:%M:%S"), size))
         return
+    
+    def add_menu_bar(self):
+        # 메뉴바 생성
+        menubar = tk.Menu(self.root)
+        menubar.add_cascade(label="마크다운 문서 변환", command=self.convert_markdown)
+        menubar.add_cascade(label="PDF 문서 변환", command=self.convert_pdf)
+
+        # 메뉴바 적용
+        self.root.config(menu=menubar)
+    
+    def toggle_safety_one(self, selection, blur=True):
+        item = self.program_tree.item(selection)
+        item_id = [self.program_tree.item(child) for child in self.program_tree.get_children()].index(item)
+        item_id = self.program_tree.get_children()[item_id]
+        list_of_safety = ["안전", "위험", "고위험"]
+        current_index_of_safety = list_of_safety.index(optionalIndex(item.get("values"), 2, "고위험"))
+        item["Safety"] = list_of_safety[(current_index_of_safety + 1) % 3]
+
+        self.program_tree.set(item_id, "Safety", item["Safety"])
+        self.update_program_description_background(item_id, item["Safety"])
+
+        if blur:
+            self.program_tree.selection_remove(selection)
+    
+    
+    def toggle_safety(self, event=None):
+        print(event)
+        if len(self.program_tree.get_children()) == 0: 
+            return
+        item = self.program_tree.selection()
+        if len(item) == 0: return
+        for selection in item:
+            self.toggle_safety_one(selection, event is not None)
+
+    
+    def update_program_description_background(self, item_id, safety_text):
+        self.program_tree.tag_configure("Safe.Background", background="white", foreground="black")
+        self.program_tree.tag_configure("Warning.Background", background="#ffc107", foreground="black")
+        self.program_tree.tag_configure("Danger.Background", background="#dc3545", foreground="white")
+
+        if safety_text == "안전":
+            self.program_tree.item(item_id, tags=("Safe.Background",))
+        elif safety_text == "위험":
+            self.program_tree.item(item_id, tags=("Warning.Background",))
+        elif safety_text == "고위험":
+            self.program_tree.item(item_id, tags=("Danger.Background",))
+    
+    def convert_markdown(self):
+        # 마크다운 변환 로직 구현
+        fire_and_forget(alert, "마크다운문서로 변환중입니다....")
+        print("Hello md")
+        pass
+
+    def convert_pdf(self):
+        # PDF 변환 로직 구현
+        fire_and_forget(alert, "pdf문서로 변환중입니다...")
+        print("Hello pdf")
+        pass
 
         
 app1:FileDirectoryManager = None
