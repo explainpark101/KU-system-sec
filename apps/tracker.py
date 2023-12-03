@@ -30,7 +30,7 @@ def insertData_to_DB(file_path:Path, status=2):
         file_path = Path(file_path)
     if file_path.is_dir():
         return (insertFileLog(file_path, None, datetime.now().timestamp(), None))
-    if file_path.suffix in ['.sqlite3', '.sqlite3-journal']:
+    if file_path.name in ['FEWT.sqlite3', 'FEWT.sqlite3-journal']:
         return None
     if status == 3:
         return insertFileLog(file_path, None, datetime.now().timestamp(), False)

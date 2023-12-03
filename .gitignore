@@ -170,3 +170,8 @@ bin/*.exe
 *.sqlite3
 *.sqlite3-journal
 __diff.*
+
+
+.output.*
+output/*
+*파일변경사항 보고서.*

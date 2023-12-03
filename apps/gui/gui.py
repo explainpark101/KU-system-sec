@@ -16,6 +16,7 @@ import ctypes
 import win32com.client
 from ..database.utils import dictfetchall
 import sqlite3
+from ..documenting import create_markdown_document
 
 class AbstractManager(tk.Frame):
     __current_dir: Path = BASE_DIR
@@ -25,7 +26,7 @@ class AbstractManager(tk.Frame):
         return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32514) # set to loading
     def set_cursor_default(self):
         return 
-        return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32512) # set to loading
+        return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32512) # set to default
     
     
     def __initsmart__(self, root=None):
@@ -239,7 +240,7 @@ class RecentEdittedManager(AbstractManager):
             program_list = dictfetchall(cur)
         self.set_cursor_default()
         for program in program_list:
-            self.program_tree.insert("", "end", text=program["file_path"], values=(datetime.fromtimestamp(program["record_time"]).strftime("%Y-%m-%d %H:%M:%S"), program["size"]))
+            self.program_tree.insert("", "end", text=program["file_path"], values=(datetime.fromtimestamp(program["record_time"]).strftime("%Y-%m-%d %H:%M:%S.%f"), program["size"]))
             
         return 
         program_list = [
@@ -252,7 +253,7 @@ class RecentEdittedManager(AbstractManager):
         
     def insert_into_program_tree(self, data:dict):
         file_path, record_time, size = data.get('file_path'), data.get('record_time'), data.get('size')
-        self.program_tree.insert("", 0, text=file_path, values=(datetime.fromtimestamp(record_time).strftime("%Y-%m-%d %H:%M:%S"), size))
+        self.program_tree.insert("", 0, text=file_path, values=(datetime.fromtimestamp(record_time).strftime("%Y-%m-%d %H:%M:%S.%f"), size))
         return
     
     def add_menu_bar(self):
@@ -316,8 +317,20 @@ class RecentEdittedManager(AbstractManager):
     def convert_markdown(self):
         # 마크다운 변환 로직 구현
         fire_and_forget(alert, "마크다운문서로 변환중입니다....")
-        print("Hello md")
-        pass
+
+        print([self.program_tree.item(child) for child in self.program_tree.get_children()])
+        
+        files = []
+        for child in self.program_tree.get_children():
+            child = self.program_tree.item(child)
+            path = child.get('text')
+            log_time = child.get('values')[0]
+            file_size = child.get('values')[1]
+            safety = optionalIndex(child.get('values'), 2, None)
+            files.append({"path": path, "logged_time": log_time, "file_size": file_size, "safety": safety})
+        
+        return create_markdown_document(files, BASE_DIR / f'{datetime.now().strftime("%Y-%m-%d")} 파일변경사항 보고서.md')
+            
 
     def convert_pdf(self):
         # PDF 변환 로직 구현
