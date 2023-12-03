@@ -3,7 +3,7 @@ import time
 from pprint import pprint
 from pathlib import Path
 from .utils.MessageBox import alert, confirm
-from .config.settings import DEBUG, BASE_DIR
+from .config.settings import DEBUG, BASE_DIR, TRACKING_IGNORE_LIST, USER_HOME
 from .config.utils import fire_and_forget, fire_and_forget_decorator
 from datetime import datetime
 from itertools import chain
@@ -78,7 +78,7 @@ def insertDatas(file_path:Path, status:int, app2=get_app2()):
     return 
 
 # @fire_and_forget_decorator
-def start_tracking(watchdir:str|Path=BASE_DIR):
+def start_tracking(watchdir:str|Path=USER_HOME):
     print("tracking started!", flush=True)
     for _ in watch(watchdir, rust_timeout=100, yield_on_timeout=True):
         if not is_gui_running():
@@ -87,6 +87,8 @@ def start_tracking(watchdir:str|Path=BASE_DIR):
         app2 = get_app2()
         for status, file_path in _:
             if DEBUG: print(status.name, file_path)
+            if any([(IGNORED_PARENT in Path(file_path).parents) for IGNORED_PARENT in TRACKING_IGNORE_LIST]):
+                continue
             fire_and_forget_decorator(insertDatas)(file_path, status, app2)
     return 
 
