@@ -30,3 +30,8 @@ python manage.py -f [watch-directory]
 ```powershell
 python manage.py [watch-directory]
 ```
+
+### 파일변경사항 트래킹 블랙리스트
+`apps/config/settings.py` 의 `TRACKING_IGNORE_LIST` 항목을 수정하시면 됩니다.
+
+해당 리스트에 포함되어있는 디렉토리는 변경사항에 대한 로그를 남기지 않습니다.
