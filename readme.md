@@ -11,3 +11,12 @@ File Explorer With Tracking
 - 2019270116 인공지능사이버보안학과 고용훈 **Backend dev**
 - 2022272001 스마트도시학부 박재형 **Leader / DB, Backend dev.**
 - 2019270123 인공지능사이버보안학과 배강민 **Frontend dev.**
+
+
+## 설치방법
+```powershell
+git clone git@github.com:explainpark101/KU-system-sec.git
+python -m venv myvenv
+.\myvenv\Scripts\pip.exe install -r requirements.txt
+.\myvenv\Scripts\python.exe manage.py
+```
