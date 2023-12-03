@@ -74,7 +74,7 @@ def create_markdown_document(files, output_path:pathlib.Path|None=None) -> pathl
                 FROM fileContent
                 WHERE file_path=?
                     AND record_time = ?
-            """, [file.get('path'), convert_time(file.get('logged_time'))])
+            """, [file.get('path').replace("\\", '/'), convert_time(file.get('logged_time'))])
             file_data = optionalIndex(dictfetchall(cur), 0, {}).get('content', 'None')
             ext = file.get('path').split('.')[-1]
             file_name = file.get('path').split("\\")[-1]
@@ -96,8 +96,8 @@ def create_markdown_document(files, output_path:pathlib.Path|None=None) -> pathl
                 SELECT content
                 FROM fileContent
                 WHERE file_path=?
-                    AND record_time=?
-            """, [file.get('path'), convert_time(file.get('logged_time'))])
+                    AND record_time = ?
+            """, [file.get('path').replace("\\", '/'), convert_time(file.get('logged_time'))])
             file_data = optionalIndex(dictfetchall(cur), 0, {}).get('content')
             ext = file.get('path').split('.')[-1]
             file_name = file.get('path').split("\\")[-1]

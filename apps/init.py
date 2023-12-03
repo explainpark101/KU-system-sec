@@ -20,7 +20,7 @@ def _create_database():
     
     cur.execute("""
                 CREATE TABLE fileContent (
-                    [id] INT PRIMARY KEY,
+                    [id] INTEGER PRIMARY KEY,
                     [file_path] VARCHAR(1024),
                     [content] BLOB NULL,
                     [record_time] INT,

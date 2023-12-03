@@ -1,8 +1,8 @@
 from .utils import get_connection, dictfetchall, dictfetchall_lazy
 from datetime import datetime, timedelta
 from pathlib import Path
-from ..config.settings import DEBUG, DEBUG_PRINT_FILEINPUT
-import sqlite3, time
+from ..config.settings import DEBUG, DEBUG_PRINT_FILEINPUT, DB_NAME, WATCHING_INTERVAL_MS
+import sqlite3, time, traceback
 
 
 
@@ -47,6 +47,7 @@ def insertFileLog_many(filenames:list[Path|str], contents:list[str|bytes], is_te
     cur = conn.cursor()
     cur.executemany("""
                 INSERT INTO fileContent(
+                    [id],
                     [file_path],
                     [content],
                     [record_time],
@@ -55,6 +56,7 @@ def insertFileLog_many(filenames:list[Path|str], contents:list[str|bytes], is_te
                     [size]
                 )
                 VALUES (
+                    NULL,
                     ?,
                     ?,
                     ?,
@@ -73,22 +75,22 @@ def getattr_func(obj, property:str):
         return None
 
 def insertFileLog(filename:Path|str, content:str|bytes, 
-                  record_time:datetime|int, is_text:bool, error=None) -> None:
+                  record_time:datetime|int, is_text:bool, error=None, conn=None) -> None:
     values = filename.as_posix(), content, record_time, is_text, \
                 (getattr(filename, "is_dir", lambda: Path(filename).is_dir))(), \
                 getattr(getattr_func(filename, "stat"), "st_size", 0), error
-                
-    conn = get_connection()
+    
+    if conn is None:
+        conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
-    from ..config.settings import WATCHING_INTERVAL_MS
     while True:
         try:
             cur.execute("""
                         INSERT INTO fileContent(
-                            [file_path], [content], [record_time], [is_text], [is_dir], [size], [error]
+                            [id], [file_path], [content], [record_time], [is_text], [is_dir], [size], [error_msg]
                         )
                         VALUES (
-                            ?, ?, ?, ?, ?, ?, ?
+                            NULL, ?, ?, ?, ?, ?, ?, ?
                         )
                         """, values)
             conn.commit()
