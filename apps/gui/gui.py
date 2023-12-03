@@ -167,7 +167,7 @@ class RecentEdittedManager(AbstractManager):
         self.right_frame.pack(expand=True, fill='both')
 
         self.wrapper_frame = ttk.Frame(self.right_frame)
-        self.wrapper_frame.grid(row=2, column=1)
+        self.wrapper_frame.grid(row=3, column=1)
 
         menubar = tk.Menu(self.root)
         menubar.add_cascade(label="마크다운 문서 변환", command=self.convert_markdown)
@@ -177,11 +177,15 @@ class RecentEdittedManager(AbstractManager):
         self.root.config(menu=menubar)
 
         self.change_safety_btn = ttk.Button(self.wrapper_frame, text="위험도 변경", command=self.toggle_safety, width=20)
-        self.change_safety_btn.grid(row=1, column=0, pady=5, padx=(10, 5), sticky=tk.W)
+        self.change_safety_btn.grid(row=2, column=0, pady=5, padx=(10, 5), sticky=tk.W)
 
         # 2창 상단: Recent Editted
         self.frontend_text = ttk.Label(self.wrapper_frame, text="Recently Editted", font=("Helvetica", 14, "bold"))
         self.frontend_text.grid(row=0, column=0, padx=10, pady=5, sticky='ns')
+        
+        self.current_watching_dir = ttk.Label(self.wrapper_frame, text="Current Watching:", font=("Helvetica", 11))
+        self.current_watching_dir.grid(row=1, column=0, padx=10, pady=3, sticky='ns')
+        self.current_watching_dir.bind("<Double-1>", self.change_watching_dir)
 
         self.label_01 = ttk.Label(self.wrapper_frame, 
                                 text=(
@@ -193,7 +197,7 @@ class RecentEdittedManager(AbstractManager):
                                   'notFile=폴더임'
                                 )
         )
-        self.label_01.grid(row=1, column=0)
+        self.label_01.grid(row=2, column=0)
 
         # 2창: 최근 변경된 프로그램
         self.program_tree = ttk.Treeview(self.wrapper_frame, height=35)
@@ -206,17 +210,26 @@ class RecentEdittedManager(AbstractManager):
         self.program_tree.column("LastModified", width=100, anchor=tk.W)
         self.program_tree.column("Size", width=70, anchor=tk.W)
         self.program_tree.column("Safety", width=70, anchor=tk.W)  # Width for "Safety" column
-        self.program_tree.grid(row=3, column=0, padx=10, pady=5, columnspan=1, rowspan=1)
+        self.program_tree.grid(row=4, column=0, padx=10, pady=5, columnspan=1, rowspan=1)
         
         self.program_tree.bind()
 
         # 2창 스크롤바 추가
         program_scrollbar = ttk.Scrollbar(self.wrapper_frame, orient="vertical", command=self.program_tree.yview)
-        program_scrollbar.grid(row=3, column=1, sticky=(tk.N, tk.S))
+        program_scrollbar.grid(row=4, column=1, sticky=(tk.N, tk.S))
         self.program_tree.config(yscrollcommand=program_scrollbar.set)
 
         self.program_tree.bind("<Double-1>", self.toggle_safety)
         
+    def change_watching_dir(self):
+        ...
+        
+    def change_watching_dir_label(self, value:Path):
+        if not isinstance(value, Path):
+            return
+        self.current_watching_dir.config(text=f"Watching: {value.absolute()}")
+        return 
+    
     def update_program_tree(self):
         """
         Database에서 변경사항 목록을 가져옵니다.

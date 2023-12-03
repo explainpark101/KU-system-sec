@@ -73,7 +73,6 @@ def insertDatas(file_path:Path, status:int, app2=get_app2()):
     res = insertData_to_DB(file_path, status)
     if res is not None:
         filename, content, record_time, *is_sereis, _size = res
-        print(is_sereis, _size)
         app2.insert_into_program_tree({"file_path": filename, "record_time":record_time, "size":_size})
         insertFileLog(*res)
     return 
@@ -86,6 +85,7 @@ def start_tracking(watchdir:str|Path=USER_HOME):
             return 
         _ = list(_)
         app2 = get_app2()
+        fire_and_forget_decorator(app2.change_watching_dir_label)(watchdir)
         for status, file_path in _:
             if DEBUG: print(status.name, file_path)
             if any([(IGNORED_PARENT in Path(file_path).parents) for IGNORED_PARENT in TRACKING_IGNORE_LIST]):

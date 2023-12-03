@@ -41,7 +41,7 @@ def main(argv):
     runGUI()
 
     if DEBUG:
-        print("watching: ", watch_path.__str__())
+        print("watching: ", watch_path.resolve())
     start_tracking(watch_path)
     # os.system("python manage.py gui")
     # write_last_logging()
