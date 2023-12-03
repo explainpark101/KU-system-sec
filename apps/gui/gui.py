@@ -279,13 +279,25 @@ class RecentEdittedManager(AbstractManager):
             self.program_tree.selection_remove(selection)
     
     
-    def toggle_safety(self, event=None):
-        print(event)
+    def toggle_safety(self, event=None):    
         if len(self.program_tree.get_children()) == 0: 
             return
-        item = self.program_tree.selection()
-        if len(item) == 0: return
-        for selection in item:
+        selections = self.program_tree.selection()
+        if len(selections) == 0: return
+        if event is None: # batch toggle
+            list_of_safety = ["안전", "위험", "고위험"]
+            current_index_of_safety = list_of_safety.index(optionalIndex(self.program_tree.item(selections[0]).get("values"), 2, "고위험"))
+            for selection in selections:
+                item = self.program_tree.item(selection)
+                item_id = [self.program_tree.item(child) for child in self.program_tree.get_children()].index(item)
+                item_id = self.program_tree.get_children()[item_id]
+                item["Safety"] = list_of_safety[(current_index_of_safety + 1) % 3]
+
+                self.program_tree.set(item_id, "Safety", item["Safety"])
+                self.update_program_description_background(item_id, item["Safety"])
+            return 
+            
+        for selection in selections:
             self.toggle_safety_one(selection, event is not None)
 
     
