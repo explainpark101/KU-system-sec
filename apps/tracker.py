@@ -50,7 +50,7 @@ def insertData_to_DB(file_path:Path, status=2):
                         return (file_path, None, datetime.now().timestamp(), False, file_path.stat().st_size)
                     with open(file_path, "r", encoding=encoding_detection.get("encoding", "utf8")) as file_data:
                         content = file_data.read()
-                    return (file_path, content, datetime.now().timestamp(), True)
+                    return (file_path, content, datetime.now().timestamp(), True, file_path.stat().st_size)
                 except UnicodeDecodeError:
                     if file_path.stat().st_size > 5000000:
                         return (file_path, None, datetime.now().timestamp(), False, file_path.stat().st_size)
@@ -73,6 +73,7 @@ def insertDatas(file_path:Path, status:int, app2=get_app2()):
     res = insertData_to_DB(file_path, status)
     if res is not None:
         filename, content, record_time, *is_sereis, _size = res
+        print(is_sereis, _size)
         app2.insert_into_program_tree({"file_path": filename, "record_time":record_time, "size":_size})
         insertFileLog(*res)
     return 
