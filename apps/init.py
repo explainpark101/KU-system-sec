@@ -20,12 +20,14 @@ def _create_database():
     
     cur.execute("""
                 CREATE TABLE fileContent (
+                    [id] INT PRIMARY KEY,
                     [file_path] VARCHAR(1024),
                     [content] BLOB NULL,
                     [record_time] INT,
                     [is_text] BOOLEAN NULL,
                     [is_dir] BOOLEAN,
-                    [size] INT NULL
+                    [size] INT NULL,
+                    [error_msg] TEXT NULL
                 );
                 """)
     conn.commit()

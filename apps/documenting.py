@@ -6,8 +6,9 @@ from .utils.MessageBox import confirm
 from .database.utils import dictfetchall
 from .config.utils import optionalIndex, process_f_string
 from pyhtml2pdf import converter
+from .cursor import change_cursor
 
-import pathlib
+import pathlib, os
 
 COLOR_MAP = {
     "안전": "background: white; color: black;",
@@ -62,7 +63,8 @@ def create_markdown_document(files, output_path:pathlib.Path|None=None) -> pathl
     
     # return 
     with sqlite3.connect(BASE_DIR / 'FEWT.sqlite3') as conn:
-        document_content += [f"\n## 고위험 파일 목록\n"]
+        highdanger_count = [file for file in files if file.get('safety') == '고위험'].__len__()
+        document_content += [f"\n## 고위험 파일 목록 ({highdanger_count}개)\n"]
         cur = conn.cursor()
         for file in files:
             if file.get('safety') != '고위험':
@@ -73,7 +75,7 @@ def create_markdown_document(files, output_path:pathlib.Path|None=None) -> pathl
                 WHERE file_path=?
                     AND record_time = ?
             """, [file.get('path'), convert_time(file.get('logged_time'))])
-            file_data = optionalIndex(dictfetchall(cur), 0, {}).get('content', 'None').replace("`", '\\`')
+            file_data = optionalIndex(dictfetchall(cur), 0, {}).get('content', 'None')
             ext = file.get('path').split('.')[-1]
             file_name = file.get('path').split("\\")[-1]
             document_content += [process_f_string(f"""
@@ -85,7 +87,8 @@ def create_markdown_document(files, output_path:pathlib.Path|None=None) -> pathl
                 파일크기 : {file.get('file_size')}bytes
             """), f"""```{ext}\n{file_data}\n```""" "\n\n"]
 
-        document_content += [f"\n## 위험 파일 목록\n"]
+        danger_count = [file for file in files if file.get('safety') == '위험'].__len__()
+        document_content += [f"\n## 위험 파일 목록 ({danger_count}개)\n"]
         for file in files:
             if file.get('safety') != '위험':
                 continue
@@ -111,11 +114,21 @@ def create_markdown_document(files, output_path:pathlib.Path|None=None) -> pathl
     if output_path is not None:
         with open(output_path, 'w', encoding='UTF8') as f:
             f.write(document_content)
-            
-        # HTML -> PDF
-        # with open(BASE_DIR / '.output.markdown.html', 'w') as f:
-        #     f.write(markdown(document_content))
         
-        # converter.convert(f"file://{BASE_DIR / '.output.markdown.html'}", output_path)
-        
+        if confirm("마크다운 파일을 완성하였습니다. 마크다운 파일을 여시겠습니까?"):
+            os.startfile(output_path)
     return document_content
+
+def create_pdf(files, output_path:pathlib.Path):
+    change_cursor("loading")
+    doc_content = create_markdown_document(files, output_path=None)
+    with open(BASE_DIR / '.output.markdown.html', 'w', encoding="UTF8") as f:
+        f.write(f"""<link rel="stylesheet" href="./code-styles.css"/>""")
+        f.write(markdown(doc_content, extensions=['fenced_code', 'codehilite']))
+    converter.convert((BASE_DIR / '.output.markdown.html').as_uri(), output_path.__str__())
+    if not DEBUG:
+        os.remove(BASE_DIR / '.output.markdown.html')
+    change_cursor("default")
+    if confirm("PDF 파일이 완성되었습니다! 여시겠습니까?"):
+        os.startfile(output_path)
+    change_cursor("default")

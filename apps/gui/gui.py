@@ -6,29 +6,17 @@ from tkinter import ttk, Menu
 import time
 from pprint import pprint
 from pathlib import Path
-import subprocess
-import filetype
 from datetime import datetime, timedelta
 from apps.config.utils import fire_and_forget, optionalIndex
 from ..fileapi import getFileInfo_fromDB
 from ..utils.MessageBox import alert, confirm
-import ctypes
-import win32com.client
 from ..database.utils import dictfetchall
 import sqlite3
-from ..documenting import create_markdown_document
+from ..documenting import create_markdown_document, create_pdf
+from ..cursor import change_cursor
 
 class AbstractManager(tk.Frame):
     __current_dir: Path = BASE_DIR
-    hcursor = ctypes.windll.user32.GetCursor()
-    def set_cursor_loading(self):
-        return 
-        return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32514) # set to loading
-    def set_cursor_default(self):
-        return 
-        return ctypes.windll.user32.SetSystemCursor(self.hcursor, 32512) # set to default
-    
-    
     def __initsmart__(self, root=None):
         if root is None:
             root = tk.Tk()
@@ -53,7 +41,7 @@ class AbstractManager(tk.Frame):
         global app1, app2, running
         if not confirm("Do you wish to close FEWT?"):
             return
-        self.set_cursor_default()
+        change_cursor()
         if app1 is not None and (app1_master:=getattr(app1, 'master')):
             app1_master.destroy()
         running = False
@@ -93,7 +81,7 @@ class FileDirectoryManager(AbstractManager):
         self.directory_tree = ttk.Treeview(self.left_frame, selectmode="extended", columns=("Type", "Size"), height=20)
         self.directory_tree.heading("#0", text="이름", anchor=tk.W)
         self.directory_tree.heading("Type", text="타입", anchor=tk.W)
-        self.directory_tree.heading("Size", text="크기", anchor=tk.W)
+        self.directory_tree.heading("Size", text="크기(kb)", anchor=tk.W)
         self.directory_tree.column("#0", width=650, anchor=tk.W)
         self.directory_tree.column("Type", width=130, anchor=tk.W)
         self.directory_tree.column("Size", width=130, anchor=tk.W)
@@ -119,7 +107,6 @@ class FileDirectoryManager(AbstractManager):
 
 
     def update_directory_tree(self):
-        self.set_cursor_loading()
         path = self.current_dir
         self.directory_tree.delete(*self.directory_tree.get_children())
 
@@ -134,12 +121,11 @@ class FileDirectoryManager(AbstractManager):
                 item_size = item_path.stat().st_size
             except FileNotFoundError:
                 continue
-            self.set_cursor_loading()
             self.directory_tree.insert("", "end", text=item.name, values=(item_type, item_size))
 
         # 업데이트된 디렉토리 경로를 표시
         self.directory_path_label.config(text="현재 디렉토리: " + path_to_str(path))
-        self.set_cursor_default()
+        change_cursor()
         
 
     
@@ -194,10 +180,19 @@ class RecentEdittedManager(AbstractManager):
         self.change_safety_btn.grid(row=1, column=0, pady=5, padx=(10, 5), sticky=tk.W)
 
         # 2창 상단: Recent Editted
-        self.frontend_text = ttk.Label(self.wrapper_frame, text="Recent Editted", font=("Helvetica", 14, "bold"))
+        self.frontend_text = ttk.Label(self.wrapper_frame, text="Recently Editted", font=("Helvetica", 14, "bold"))
         self.frontend_text.grid(row=0, column=0, padx=10, pady=5, sticky='ns')
 
-        self.label_01 = ttk.Label(self.wrapper_frame, text='여기에는 파일 변경사항이 기록됩니다.\n파일을 더블 클릭하여 위험도를 변경하고, markdown 문서 또는 pdf 문서로 출력할 수 있습니다.')
+        self.label_01 = ttk.Label(self.wrapper_frame, 
+                                text=(
+                                  '여기에는 파일 변경사항이 기록됩니다.\n'+
+                                  '파일을 더블 클릭하여 위험도를 변경하고, markdown 문서 또는 pdf 문서로 출력할 수 있습니다.\n'+
+                                  '크기의 숫자가 아닌 항목은 다음을 의미합니다.\n'+
+                                  'del=삭제된항목\n'+
+                                  'PermErr=권한제한으로 알 수 없음\n'+
+                                  'notFile=폴더임'
+                                )
+        )
         self.label_01.grid(row=1, column=0)
 
         # 2창: 최근 변경된 프로그램
@@ -205,7 +200,7 @@ class RecentEdittedManager(AbstractManager):
         self.program_tree["columns"] = ("LastModified", "Size", "Safety")
         self.program_tree.heading("#0", text="프로그램", anchor=tk.W)
         self.program_tree.heading("LastModified", text="최근 수정일", anchor=tk.W)
-        self.program_tree.heading("Size", text="크기", anchor=tk.W)
+        self.program_tree.heading("Size", text="크기(kb)", anchor=tk.W)
         self.program_tree.heading("Safety", text="안전도", anchor=tk.W)  # Header for "Safety" column
         self.program_tree.column("#0", width=550, anchor=tk.W)
         self.program_tree.column("LastModified", width=100, anchor=tk.W)
@@ -229,7 +224,7 @@ class RecentEdittedManager(AbstractManager):
         """
         path = self.current_dir
         self.program_tree.delete(*self.program_tree.get_children())
-        # self.set_cursor_loading()
+        change_cursor("loading")
         with sqlite3.connect("FEWT.sqlite3") as conn:
             cur = conn.cursor()
             cur.execute("""
@@ -238,18 +233,11 @@ class RecentEdittedManager(AbstractManager):
                 WHERE record_time > ?
             """, [(datetime.now() - timedelta(hours=-1)).timestamp()])
             program_list = dictfetchall(cur)
-        self.set_cursor_default()
+        change_cursor()
         for program in program_list:
             self.program_tree.insert("", "end", text=program["file_path"], values=(datetime.fromtimestamp(program["record_time"]).strftime("%Y-%m-%d %H:%M:%S.%f"), program["size"]))
             
         return 
-        program_list = [
-            getFileInfo_fromDB(p.get("file_path")) for p in program_list
-        ]
-
-        for program in program_list:
-            self.program_tree.insert("", "end", text=program["name"], values=(program["LastModified"], program["Size"]))
-        self.set_cursor_default()
         
     def insert_into_program_tree(self, data:dict):
         file_path, record_time, size = data.get('file_path'), data.get('record_time'), data.get('size')
@@ -316,10 +304,6 @@ class RecentEdittedManager(AbstractManager):
     
     def convert_markdown(self):
         # 마크다운 변환 로직 구현
-        fire_and_forget(alert, "마크다운문서로 변환중입니다....")
-
-        print([self.program_tree.item(child) for child in self.program_tree.get_children()])
-        
         files = []
         for child in self.program_tree.get_children():
             child = self.program_tree.item(child)
@@ -335,8 +319,15 @@ class RecentEdittedManager(AbstractManager):
     def convert_pdf(self):
         # PDF 변환 로직 구현
         fire_and_forget(alert, "pdf문서로 변환중입니다...")
-        print("Hello pdf")
-        pass
+        files = []
+        for child in self.program_tree.get_children():
+            child = self.program_tree.item(child)
+            path = child.get('text')
+            log_time = child.get('values')[0]
+            file_size = child.get('values')[1]
+            safety = optionalIndex(child.get('values'), 2, None)
+            files.append({"path": path, "logged_time": log_time, "file_size": file_size, "safety": safety})
+        return create_pdf(files, BASE_DIR / f'{datetime.now().strftime("%Y-%m-%d")} 파일변경사항 보고서.pdf')
 
         
 app1:FileDirectoryManager = None
@@ -387,9 +378,6 @@ def runGUI():
     thd2 = threading.Thread(target=update_program_tree, args=(app2, ))
     thd2.daemon = True
     thd2.start()
-    
-    print(app1, app2)
-
     
 if __name__ == "__main__":
     runGUI()

@@ -73,10 +73,10 @@ def getattr_func(obj, property:str):
         return None
 
 def insertFileLog(filename:Path|str, content:str|bytes, 
-                  record_time:datetime|int, is_text:bool) -> None:
+                  record_time:datetime|int, is_text:bool, error=None) -> None:
     values = filename.as_posix(), content, record_time, is_text, \
                 (getattr(filename, "is_dir", lambda: Path(filename).is_dir))(), \
-                getattr(getattr_func(filename, "stat"), "st_size", 0)
+                getattr(getattr_func(filename, "stat"), "st_size", 0), error
                 
     conn = get_connection()
     cur = conn.cursor()
@@ -85,10 +85,10 @@ def insertFileLog(filename:Path|str, content:str|bytes,
         try:
             cur.execute("""
                         INSERT INTO fileContent(
-                            [file_path], [content], [record_time], [is_text], [is_dir], [size]
+                            [file_path], [content], [record_time], [is_text], [is_dir], [size], [error]
                         )
                         VALUES (
-                            ?, ?, ?, ?, ?, ?
+                            ?, ?, ?, ?, ?, ?, ?
                         )
                         """, values)
             conn.commit()
@@ -98,4 +98,9 @@ def insertFileLog(filename:Path|str, content:str|bytes,
     conn.close()
     if DEBUG_PRINT_FILEINPUT: print("[inserted]: ", filename, end="\r")
     return values
-    
+
+def convert_file_log_data(filename:Path|str, content:str|bytes, 
+                  record_time:datetime|int, is_text:bool, error=None) -> None:
+    return filename.as_posix(), content, record_time, is_text, \
+                (getattr(filename, "is_dir", lambda: Path(filename).is_dir))(), \
+                getattr(getattr_func(filename, "stat"), "st_size", 0), error
